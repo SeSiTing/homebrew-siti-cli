@@ -1,4 +1,6 @@
 #!/bin/zsh
+
+# 描述: 备份 zshrc 配置文件
 BACKUP_DIR="$HOME/backups/zshrc"
 mkdir -p $BACKUP_DIR
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

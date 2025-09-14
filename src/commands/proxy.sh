@@ -1,6 +1,11 @@
 #!/bin/bash
 
 # 描述: 管理终端代理设置
+# 补全:
+#   on: 开启终端代理
+#   off: 关闭终端代理
+#   check: 检查当前代理状态
+#   status: 显示代理状态
 # 用法:
 #   siti proxy on     开启终端代理
 #   siti proxy off    关闭终端代理

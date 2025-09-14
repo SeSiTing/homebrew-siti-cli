@@ -1,0 +1,104 @@
+#compdef siti
+
+# siti-cli Zsh 补全脚本
+# 自动发现和解析 commands 目录下的所有命令
+
+_siti() {
+    local context state line
+    local -a commands subcommands
+    
+    # 缓存 siti 脚本路径（避免重复查找）
+    local siti_script
+    if [ -z "$_SITI_SCRIPT_PATH" ]; then
+        siti_script=$(which siti 2>/dev/null)
+        if [ -z "$siti_script" ]; then
+            return 1
+        fi
+        _SITI_SCRIPT_PATH="$siti_script"
+    else
+        siti_script="$_SITI_SCRIPT_PATH"
+    fi
+    
+    local script_dir
+    script_dir=$(dirname "$siti_script")
+    local commands_dir
+    commands_dir="$(dirname "$script_dir")/src/commands"
+    
+    # 如果 commands 目录不存在，返回
+    if [ ! -d "$commands_dir" ]; then
+        return 1
+    fi
+    
+    # 获取所有可用命令
+    for cmd_file in "$commands_dir"/*.sh; do
+        if [ -f "$cmd_file" ]; then
+            local cmd_name
+            cmd_name=$(basename "$cmd_file" .sh)
+            # 将下划线转换为连字符
+            cmd_name="${cmd_name//_/-}"
+            commands+=("$cmd_name")
+        fi
+    done
+    
+    # 添加全局选项
+    commands+=("--help:显示帮助信息" "--version:显示版本信息")
+    
+    _arguments -C \
+        '1: :->command' \
+        '*::arg:->args' && return 0
+    
+    case $state in
+        command)
+            _describe 'siti commands' commands
+            ;;
+        args)
+            # 获取当前命令
+            local current_cmd="${line[1]}"
+            # 将连字符转换回下划线
+            current_cmd="${current_cmd//-/_}"
+            local cmd_script="$commands_dir/${current_cmd}.sh"
+            
+            if [ -f "$cmd_script" ]; then
+                # 从脚本中提取补全信息
+                local -a completion_opts
+                
+                # 查找补全信息：以 "# 补全:" 开头的行
+                while IFS= read -r line; do
+                    # 跳过注释符号和空格
+                    line=$(echo "$line" | sed 's/^# *//')
+                    
+                    # 提取选项和描述
+                    if [[ "$line" =~ ^([^:]+):(.+)$ ]]; then
+                        local option="${match[1]}"
+                        local desc="${match[2]}"
+                        # 清理选项名（去除前后空格）
+                        option=$(echo "$option" | xargs)
+                        desc=$(echo "$desc" | xargs)
+                        completion_opts+=("$option:$desc")
+                    fi
+                done < <(awk '/^# 补全:/,/^# [^ ]/ { if (/^# 补全:/) next; if (/^# [^ ]/ && !/^# 补全:/) exit; print }' "$cmd_script")
+                
+                # 如果找到了补全选项，使用它们
+                if [ ${#completion_opts[@]} -gt 0 ]; then
+                    _describe 'subcommands' completion_opts
+                else
+                    # 如果没有找到补全信息，尝试从用法中提取
+                    local -a usage_opts
+                    while IFS= read -r line; do
+                        # 查找类似 "siti cmd option" 的模式
+                        if [[ "$line" =~ siti[[:space:]]+[^[:space:]]+[[:space:]]+([^[:space:]]+) ]]; then
+                            local option="${match[1]}"
+                            usage_opts+=("$option")
+                        fi
+                    done < <(awk '/^# 用法:/,/^# [^ ]/ { if (/^# 用法:/) next; if (/^# [^ ]/ && !/^# 用法:/) exit; print }' "$cmd_script")
+                    
+                    if [ ${#usage_opts[@]} -gt 0 ]; then
+                        _describe 'subcommands' usage_opts
+                    fi
+                fi
+            fi
+            ;;
+    esac
+}
+
+_siti "$@"

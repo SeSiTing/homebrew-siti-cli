@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # 描述: 释放被占用的端口，支持端口范围
+# 补全:
+#   check: 仅检查端口占用情况，不释放
+#   help: 显示帮助信息
 # 用法:
 #   siti killports           释放默认端口范围
 #   siti killports 3000 5000 释放指定端口

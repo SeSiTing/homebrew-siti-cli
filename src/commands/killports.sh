@@ -10,8 +10,10 @@
 #   siti killports 3000-3010 释放端口范围
 #   siti killports check     仅检查端口占用情况，不释放
 # 默认端口范围（2024～2030、8000～8010、8080～8090 和 9000～9010）
+# 定义默认端口范围
 DEFAULT_PORTS=($(seq 2024 2030) $(seq 8000 8010) $(seq 8080 8090) $(seq 9000 9010))
 
+# 默认模式为kill
 MODE="kill"
 
 # 解析端口范围函数
@@ -57,6 +59,7 @@ if [ "$1" == "help" ] || [ "$1" == "--help" ]; then
   exit 0
 fi
 
+# 检查模式设置
 if [ "$1" == "check" ]; then
   MODE="check"
   shift
@@ -85,12 +88,16 @@ fi
 
 echo "🔍 正在扫描端口占用..."
 
+# 遍历所有端口并检查占用情况
 for PORT in "${PORTS[@]}"; do
-  PIDS=$(lsof -ti tcp:$PORT)
+  # 获取占用指定端口的进程ID
+  PIDS=$(lsof -ti tcp:"$PORT")
   if [ -n "$PIDS" ]; then
+    # 获取第一个进程的命令行以判断进程类型
     FIRST_PID=$(echo "$PIDS" | head -n1)
-    CMDLINE=$(ps -p $FIRST_PID -o args=)
+    CMDLINE=$(ps -p "$FIRST_PID" -o args=)
 
+    # 根据命令行判断进程类型
     if echo "$CMDLINE" | grep -qi "java"; then
       TYPE="☕ Java"
     elif echo "$CMDLINE" | grep -qi "python"; then
@@ -101,17 +108,20 @@ for PORT in "${PORTS[@]}"; do
       TYPE="🧩 Other"
     fi
 
-    PID_LIST=$(echo $PIDS | tr '\n' ' ')
+    # 格式化PID列表用于显示
+    PID_LIST=$(echo "$PIDS" | tr '\n' ' ')
     echo "⚠️  $PORT 端口被占用 - $TYPE - PIDs: [$PID_LIST]"
 
+    # 如果是kill模式，终止所有占用进程
     if [ "$MODE" == "kill" ]; then
       for pid in $PIDS; do
-        kill -9 $pid >/dev/null 2>&1
+        kill -9 "$pid" >/dev/null 2>&1
       done
     fi
   fi
 done
 
+# 显示执行结果
 if [ "$MODE" == "check" ]; then
   echo "📝 检查模式，未终止任何进程"
 else

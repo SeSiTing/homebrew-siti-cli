@@ -51,6 +51,15 @@ else
   echo "" >> "$RC_FILE"
   echo "# === siti-cli 配置 ===" >> "$RC_FILE"
   echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$RC_FILE"
+  echo "" >> "$RC_FILE"
+  echo "# proxy 命令包装器" >> "$RC_FILE"
+  echo "siti() {" >> "$RC_FILE"
+  echo "  if [[ \"\$1\" == \"proxy\" && (\"\$2\" == \"on\" || \"\$2\" == \"off\") ]]; then" >> "$RC_FILE"
+  echo "    eval \"\$(command siti \"\$@\")\"" >> "$RC_FILE"
+  echo "  else" >> "$RC_FILE"
+  echo "    command siti \"\$@\"" >> "$RC_FILE"
+  echo "  fi" >> "$RC_FILE"
+  echo "}" >> "$RC_FILE"
   echo "成功将 siti-cli 添加到 $RC_FILE"
 fi
 

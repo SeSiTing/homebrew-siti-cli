@@ -7,9 +7,9 @@
 #   check: 检查当前代理状态
 #   status: 显示代理状态
 # 用法:
-#   eval $(siti proxy on)     开启终端代理
-#   eval $(siti proxy off)    关闭终端代理
-#   siti proxy check          检查当前代理状态
+#   siti proxy on      开启终端代理
+#   siti proxy off     关闭终端代理
+#   siti proxy check   检查当前代理状态
 
 # 代理服务器配置
 PROXY_HOST="127.0.0.1"
@@ -56,9 +56,9 @@ case "$CMD" in
   *)
     echo "❌ 未知命令: $CMD" >&2
     echo "用法:" >&2
-    echo "  eval \$(siti proxy on)   # 开启代理" >&2
-    echo "  eval \$(siti proxy off)  # 关闭代理" >&2
-    echo "  siti proxy check         # 检查状态" >&2
+    echo "  siti proxy on    # 开启代理" >&2
+    echo "  siti proxy off   # 关闭代理" >&2
+    echo "  siti proxy check # 检查状态" >&2
     exit 1
     ;;
 esac

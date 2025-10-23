@@ -6,8 +6,28 @@
 
 # 获取脚本所在目录的绝对路径
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMMANDS_DIR="$(dirname "$SCRIPT_DIR")/src/commands"
 VERSION="1.0.0"
+
+# 检测安装方式并设置命令目录
+detect_installation_type() {
+  # 检查是否通过 Homebrew 安装
+  if [[ "$SCRIPT_DIR" == "/opt/homebrew/bin" ]] || [[ "$SCRIPT_DIR" == "/usr/local/bin" ]]; then
+    # Homebrew 安装
+    if [ -d "/opt/homebrew/share/siti-cli/commands" ]; then
+      COMMANDS_DIR="/opt/homebrew/share/siti-cli/commands"
+    elif [ -d "/usr/local/share/siti-cli/commands" ]; then
+      COMMANDS_DIR="/usr/local/share/siti-cli/commands"
+    else
+      error "Homebrew 安装的 siti-cli 命令目录未找到"
+    fi
+  else
+    # 源码开发模式
+    COMMANDS_DIR="$(dirname "$SCRIPT_DIR")/src/commands"
+  fi
+}
+
+# 检测安装类型
+detect_installation_type
 
 # 颜色定义
 COLOR_RESET="\033[0m"
@@ -31,13 +51,35 @@ error() {
   exit 1
 }
 
+# 查找命令脚本路径（优先用户自定义命令）
+find_command_script() {
+  local cmd="$1"
+  local script_name="${cmd//-/_}.sh"
+  
+  # 用户自定义命令目录
+  local user_commands_dir="$HOME/.siti/commands"
+  
+  # 优先查找用户自定义命令
+  if [ -f "$user_commands_dir/$script_name" ]; then
+    echo "$user_commands_dir/$script_name"
+    return 0
+  fi
+  
+  # 然后查找系统命令
+  if [ -f "$COMMANDS_DIR/$script_name" ]; then
+    echo "$COMMANDS_DIR/$script_name"
+    return 0
+  fi
+  
+  return 1
+}
+
 # 获取命令描述
 get_command_description() {
   local cmd="$1"
-  local script_name="${cmd//-/_}.sh"
-  local script_path="$COMMANDS_DIR/$script_name"
+  local script_path
   
-  if [ -f "$script_path" ]; then
+  if script_path=$(find_command_script "$cmd"); then
     # 从脚本文件的注释中提取描述
     # 查找以 # 描述: 开头的行
     local desc=$(grep "^# 描述:" "$script_path" 2>/dev/null | head -1 | sed 's/^# 描述: *//')
@@ -50,34 +92,33 @@ get_command_description() {
 # 显示命令特定帮助
 show_command_help() {
   local cmd="$1"
-  local script_name="${cmd//-/_}.sh"
-  local script_path="$COMMANDS_DIR/$script_name"
+  local script_path
   
-  if [ -f "$script_path" ]; then
-    # 获取命令描述
-    local desc=$(get_command_description "$cmd")
-    print_colored "$COLOR_BOLD" "siti $cmd - $desc"
-    echo
-    
-    # 尝试从脚本文件中提取帮助信息
-    # 查找以 # 用法: 开头的行到下一个 # 开头的行或文件结束
-    local usage_section=$(awk '
-      /^# 用法:/ { in_usage=1; next }
-      in_usage && /^# [^ ]/ && !/^# 用法:/ { exit }
-      in_usage { gsub(/^# ?/, ""); print }
-    ' "$script_path")
-    
-    if [ -n "$usage_section" ]; then
-      echo "$usage_section"
-    else
-      # 如果没有找到用法信息，显示通用用法
-      echo "用法:"
-      echo "  siti $cmd [参数...]"
-      echo
-      echo "运行 'siti $cmd help' 查看详细帮助信息"
-    fi
-  else
+  if ! script_path=$(find_command_script "$cmd"); then
     error "命令 '$cmd' 不存在"
+  fi
+  
+  # 获取命令描述
+  local desc=$(get_command_description "$cmd")
+  print_colored "$COLOR_BOLD" "siti $cmd - $desc"
+  echo
+  
+  # 尝试从脚本文件中提取帮助信息
+  # 查找以 # 用法: 开头的行到下一个 # 开头的行或文件结束
+  local usage_section=$(awk '
+    /^# 用法:/ { in_usage=1; next }
+    in_usage && /^# [^ ]/ && !/^# 用法:/ { exit }
+    in_usage { gsub(/^# ?/, ""); print }
+  ' "$script_path")
+  
+  if [ -n "$usage_section" ]; then
+    echo "$usage_section"
+  else
+    # 如果没有找到用法信息，显示通用用法
+    echo "用法:"
+    echo "  siti $cmd [参数...]"
+    echo
+    echo "运行 'siti $cmd help' 查看详细帮助信息"
   fi
 }
 
@@ -101,14 +142,30 @@ show_help() {
   echo "  siti --version      显示版本信息"
   echo
   
-  # 获取所有可用命令
+  # 获取所有可用命令（系统命令 + 用户自定义命令）
   local commands=()
+  local user_commands_dir="$HOME/.siti/commands"
+  
+  # 收集系统命令
   for cmd_file in "$COMMANDS_DIR"/*.sh; do
     if [ -f "$cmd_file" ]; then
       cmd_name=$(basename "$cmd_file" .sh)
       commands+=("$cmd_name")
     fi
   done
+  
+  # 收集用户自定义命令
+  if [ -d "$user_commands_dir" ]; then
+    for cmd_file in "$user_commands_dir"/*.sh; do
+      if [ -f "$cmd_file" ]; then
+        cmd_name=$(basename "$cmd_file" .sh)
+        # 避免重复添加（用户命令优先）
+        if [[ ! " ${commands[@]} " =~ " ${cmd_name} " ]]; then
+          commands+=("$cmd_name")
+        fi
+      fi
+    done
+  fi
   
   # 对命令进行排序
   IFS=$'\n' sorted_commands=($(sort <<<"${commands[*]}"))
@@ -174,28 +231,26 @@ run_command() {
     return 0
   fi
   
-  # 处理连字符命令转换为下划线
-  local script_name="${cmd//-/_}.sh"
-  local script_path="$COMMANDS_DIR/$script_name"
-  
-  if [ -f "$script_path" ]; then
-    # 检查脚本是否有执行权限
-    if [ ! -x "$script_path" ]; then
-      chmod +x "$script_path"
-    fi
-    
-    # 执行脚本
-    if [ "$cmd" = "proxy" ]; then
-      # 对于代理脚本，传递第一个参数作为命令
-      bash "$script_path" "$@"
-    else
-      # 对于其他脚本，使用source执行
-      source "$script_path" "$@"
-    fi
-    return $?
-  else
+  # 查找命令脚本
+  local script_path
+  if ! script_path=$(find_command_script "$cmd"); then
     error "未知命令: $cmd。使用 'siti --help' 查看可用命令。"
   fi
+  
+  # 检查脚本是否有执行权限
+  if [ ! -x "$script_path" ]; then
+    chmod +x "$script_path"
+  fi
+  
+  # 执行脚本
+  if [ "$cmd" = "proxy" ]; then
+    # 对于代理脚本，传递第一个参数作为命令
+    bash "$script_path" "$@"
+  else
+    # 对于其他脚本，使用source执行
+    source "$script_path" "$@"
+  fi
+  return $?
 }
 
 # 主函数

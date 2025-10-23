@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Create Release Archive
+      run: |
+        mkdir -p release
+        cp -r bin src completions scripts Formula/siti-cli.rb release/
+        tar -czf siti-cli-${{ github.ref_name }}.tar.gz -C release .
+        sha256sum siti-cli-${{ github.ref_name }}.tar.gz > siti-cli-${{ github.ref_name }}.tar.gz.sha256
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          siti-cli-${{ github.ref_name }}.tar.gz
+          siti-cli-${{ github.ref_name }}.tar.gz.sha256
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Output SHA256
+      run: |
+        echo "SHA256: $(cat siti-cli-${{ github.ref_name }}.tar.gz.sha256 | cut -d' ' -f1)"
+        echo "请手动更新 Formula/siti-cli.rb 中的 sha256 值"

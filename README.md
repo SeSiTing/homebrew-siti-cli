@@ -2,25 +2,21 @@
 
 个人命令行工具集，用于简化日常开发操作。
 
-## 功能特点
-
-- 统一的命令入口：通过 `siti` 命令访问所有工具
-- 简洁易用：简单直观的命令结构
-- 易于扩展：轻松添加新功能
-- 自动补全：支持命令和参数的自动补全
-
 ## 安装
 
+### Homebrew 安装（推荐）
+
 ```bash
-# 克隆仓库
-git clone https://github.com/yourusername/siti-cli.git
+brew install roooooowing/tap/siti-cli
+```
+
+### 手动安装（开发用）
+
+```bash
+git clone https://github.com/roooooowing/siti-cli.git
 cd siti-cli
-
-# 运行配置脚本
-./setup.sh
-
-# 使配置生效
-source ~/.zshrc  # 或 ~/.bashrc
+./scripts/post-install.sh
+export PATH="$(pwd)/bin:$PATH"
 ```
 
 ## 使用方法
@@ -86,7 +82,19 @@ siti cleanlogs
 
 ## 扩展
 
-要添加新命令，只需在 `src/commands` 目录中创建新的 `.sh` 脚本文件。脚本将自动被 `siti` 工具识别。
+### 添加用户自定义命令
+
+在 `~/.siti/commands/` 目录中创建脚本：
+
+```bash
+cat > ~/.siti/commands/mycmd.sh << 'EOF'
+#!/bin/bash
+# 描述: 我的命令
+echo "Hello from custom command!"
+EOF
+chmod +x ~/.siti/commands/mycmd.sh
+siti mycmd
+```
 
 ## 帮助
 

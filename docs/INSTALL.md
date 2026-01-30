@@ -5,7 +5,7 @@
 ### 推荐方式：一键安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/roooooowing/siti-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
 source ~/.zshrc
 ```
 
@@ -33,7 +33,7 @@ siti ai list
 
 ```bash
 # 1. 运行安装脚本
-curl -fsSL https://raw.githubusercontent.com/roooooowing/siti-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
 
 # 2. 使配置生效
 source ~/.zshrc
@@ -71,10 +71,10 @@ siti() {
 
 ```bash
 # 1. 安装（首次需要完整路径）
-brew install roooooowing/tap/siti-cli
+brew install SeSiTing/tap/siti-cli
 
 # 或者先 tap，后续可简化
-brew tap roooooowing/tap
+brew tap SeSiTing/tap
 brew install siti-cli
 
 # 2. 安装 shell 包装函数（推荐）
@@ -98,7 +98,7 @@ brew uninstall siti-cli
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/roooooowing/siti-cli.git ~/.siti-cli
+git clone https://github.com/SeSiTing/siti-cli.git ~/.siti-cli
 
 # 2. 添加到 PATH
 echo 'export PATH="$HOME/.siti-cli/bin:$PATH"' >> ~/.zshrc
@@ -160,7 +160,7 @@ eval "$(siti ai switch minimax)"  # ⚠️ 需要 eval
 
 ```bash
 # 一键安装方式
-curl -fsSL https://raw.githubusercontent.com/roooooowing/siti-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
 
 # Homebrew
 brew upgrade siti-cli

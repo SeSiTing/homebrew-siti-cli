@@ -1,7 +1,7 @@
 class SitiCli < Formula
   desc "个人命令行工具集"
-  homepage "https://github.com/roooooowing/siti-cli"
-  url "https://github.com/roooooowing/siti-cli/archive/v1.0.0.tar.gz"
+  homepage "https://github.com/SeSiTing/siti-cli"
+  url "https://github.com/SeSiTing/siti-cli/archive/v1.0.0.tar.gz"
   sha256 "PLACEHOLDER_SHA256"
   license "MIT"
 

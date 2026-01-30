@@ -2,7 +2,7 @@
 
 > 🚀 个人命令行工具集，简化日常开发操作
 
-[![GitHub](https://img.shields.io/badge/GitHub-siti--cli-blue?logo=github)](https://github.com/roooooowing/siti-cli)
+[![GitHub](https://img.shields.io/badge/GitHub-siti--cli-blue?logo=github)](https://github.com/SeSiTing/siti-cli)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## ✨ 核心功能
@@ -15,46 +15,23 @@
 ## 📦 一键安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/roooooowing/siti-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
 ```
 
 安装后运行 `source ~/.zshrc` 使配置生效。
 
-**其他安装方式：** 查看 [安装指南](docs/INSTALL.md)
-
-## 快速安装
-
-### 一键安装（推荐 ⭐）
+### 其他安装方式
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/roooooowing/siti-cli/main/install.sh | bash
+# Homebrew
+brew install SeSiTing/tap/siti-cli
+
+# 手动安装
+git clone https://github.com/SeSiTing/siti-cli.git ~/.siti-cli
+echo 'export PATH="$HOME/.siti-cli/bin:$PATH"' >> ~/.zshrc
 ```
 
-安装脚本会：
-- ✅ 自动下载并安装 siti-cli
-- ✅ 配置 PATH 环境变量
-- ✅ 询问是否安装 shell 包装函数（推荐安装）
-
-### Homebrew 安装
-
-```bash
-brew install roooooowing/tap/siti-cli
-
-# 安装 shell 包装函数（可选但推荐）
-siti-cli-setup-wrapper
-```
-
-### 手动安装（开发用）
-
-```bash
-git clone https://github.com/roooooowing/siti-cli.git
-cd siti-cli
-./scripts/post-install.sh
-export PATH="$(pwd)/bin:$PATH"
-
-# 安装 shell 包装函数（可选）
-./scripts/setup-shell-wrapper.sh install
-```
+**详细说明：** 查看 [安装指南](docs/INSTALL.md)
 
 ## 🎯 快速开始
 
@@ -91,8 +68,8 @@ siti killports 3000       # 释放 3000 端口
 
 欢迎贡献代码、报告问题或提出建议！
 
-- 报告问题：[GitHub Issues](https://github.com/roooooowing/siti-cli/issues)
-- 贡献代码：[Pull Requests](https://github.com/roooooowing/siti-cli/pulls)
+- 报告问题：[GitHub Issues](https://github.com/SeSiTing/siti-cli/issues)
+- 贡献代码：[Pull Requests](https://github.com/SeSiTing/siti-cli/pulls)
 
 ## 📄 许可证
 

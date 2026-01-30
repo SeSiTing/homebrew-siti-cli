@@ -5,7 +5,7 @@
 ### 1. 安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/roooooowing/siti-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
 source ~/.zshrc
 ```
 
@@ -229,6 +229,6 @@ siti ai switch zhipu
 
 ## 🆘 获取帮助
 
-- **GitHub Issues**: https://github.com/roooooowing/siti-cli/issues
+- **GitHub Issues**: https://github.com/SeSiTing/siti-cli/issues
 - **查看帮助**: `siti --help`
 - **查看版本**: `siti --version`

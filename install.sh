@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # siti-cli 一键安装脚本
-# 使用方式: curl -fsSL https://raw.githubusercontent.com/roooooowing/siti-cli/main/install.sh | bash
+# 使用方式: curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
 
 set -e
 
@@ -134,7 +134,7 @@ install_siti() {
     git pull origin main
   else
     print_info "正在下载 siti-cli..."
-    git clone https://github.com/roooooowing/siti-cli.git "$install_dir"
+    git clone https://github.com/SeSiTing/siti-cli.git "$install_dir"
   fi
   
   # 创建符号链接
@@ -244,7 +244,7 @@ show_completion() {
   echo "  siti proxy off          # 关闭代理"
   echo ""
   
-  print_info "更多信息: https://github.com/roooooowing/siti-cli"
+  print_info "更多信息: https://github.com/SeSiTing/siti-cli"
   echo ""
 }
 

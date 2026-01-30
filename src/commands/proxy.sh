@@ -22,6 +22,7 @@ enable_proxy() {
   echo "export https_proxy='http://${PROXY_HOST}:${PROXY_PORT}';"
   echo "export all_proxy='socks5://${PROXY_HOST}:${PROXY_PORT}';"
   echo "echo '✅ 终端代理已开启 (${PROXY_HOST}:${PROXY_PORT})';"
+  exit 10  # 退出码 10 表示需要 eval
 }
 
 disable_proxy() {
@@ -29,6 +30,7 @@ disable_proxy() {
   echo "unset https_proxy;"
   echo "unset all_proxy;"
   echo "echo '🚫 终端代理已关闭';"
+  exit 10  # 退出码 10 表示需要 eval
 }
 
 check_proxy() {
@@ -41,6 +43,7 @@ check_proxy() {
   else
     echo "  ❌ 代理未开启"
   fi
+  exit 0  # 正常退出，不需要 eval
 }
 
 case "$CMD" in

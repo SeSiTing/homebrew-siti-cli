@@ -242,14 +242,8 @@ run_command() {
     chmod +x "$script_path"
   fi
   
-  # 执行脚本
-  if [ "$cmd" = "proxy" ]; then
-    # 对于代理脚本，传递第一个参数作为命令
-    bash "$script_path" "$@"
-  else
-    # 对于其他脚本，使用source执行
-    source "$script_path" "$@"
-  fi
+  # 执行脚本（统一使用 source）
+  source "$script_path" "$@"
   return $?
 }
 

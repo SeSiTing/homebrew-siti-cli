@@ -9,28 +9,69 @@ jobs:
   release:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: write
+    
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
       
-    - name: Create Release Archive
+    - name: Get tag version
+      id: get_version
       run: |
-        mkdir -p release
-        cp -r bin src completions scripts Formula/siti-cli.rb release/
-        tar -czf siti-cli-${{ github.ref_name }}.tar.gz -C release .
-        sha256sum siti-cli-${{ github.ref_name }}.tar.gz > siti-cli-${{ github.ref_name }}.tar.gz.sha256
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        
+    - name: Calculate SHA256 for GitHub archive
+      id: calc_sha
+      run: |
+        # 下载 GitHub 自动生成的 archive（这是 Homebrew 实际会下载的）
+        curl -sL "https://github.com/${{ github.repository }}/archive/${{ steps.get_version.outputs.tag }}.tar.gz" -o archive.tar.gz
+        SHA256=$(sha256sum archive.tar.gz | cut -d' ' -f1)
+        echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+        echo "📦 Archive SHA256: $SHA256"
+        
+    - name: Update Formula
+      run: |
+        # 更新 Formula/siti-cli.rb
+        sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/archive/${{ steps.get_version.outputs.tag }}.tar.gz\"|" Formula/siti-cli.rb
+        sed -i "s|sha256 \".*\"|sha256 \"${{ steps.calc_sha.outputs.sha256 }}\"|" Formula/siti-cli.rb
+        
+        echo "✅ Formula 已更新:"
+        grep -A1 "url" Formula/siti-cli.rb | head -2
+        
+    - name: Commit and push Formula update
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add Formula/siti-cli.rb
+        git commit -m "chore(formula): update to ${{ steps.get_version.outputs.tag }}"
+        git push origin HEAD:main
         
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          siti-cli-${{ github.ref_name }}.tar.gz
-          siti-cli-${{ github.ref_name }}.tar.gz.sha256
         generate_release_notes: true
+        body: |
+          ## 安装 / 更新
+          
+          ```bash
+          # 新用户安装
+          brew tap ${{ github.repository_owner }}/siti-cli
+          brew install siti-cli
+          
+          # 已有用户更新
+          brew update
+          brew upgrade siti-cli
+          ```
+          
+          ## Formula SHA256
+          
+          ```
+          ${{ steps.calc_sha.outputs.sha256 }}
+          ```
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Output SHA256
-      run: |
-        echo "SHA256: $(cat siti-cli-${{ github.ref_name }}.tar.gz.sha256 | cut -d' ' -f1)"
-        echo "请手动更新 Formula/siti-cli.rb 中的 sha256 值"

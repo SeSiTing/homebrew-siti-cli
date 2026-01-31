@@ -24,7 +24,8 @@ curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh |
 
 ```bash
 # Homebrew
-brew install SeSiTing/tap/siti-cli
+brew tap SeSiTing/siti-cli
+brew install siti-cli
 
 # 手动安装
 git clone https://github.com/SeSiTing/siti-cli.git ~/.siti-cli

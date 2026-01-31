@@ -70,14 +70,13 @@ siti() {
 ### 方式 2: Homebrew
 
 ```bash
-# 1. 安装（首次需要完整路径）
-brew install SeSiTing/tap/siti-cli
+# 1. 添加 tap（仅首次）
+brew tap SeSiTing/siti-cli
 
-# 或者先 tap，后续可简化
-brew tap SeSiTing/tap
+# 2. 安装
 brew install siti-cli
 
-# 2. 安装 shell 包装函数（推荐）
+# 3. 安装 shell 包装函数（推荐）
 ~/.siti-cli/scripts/setup-shell-wrapper.sh install
 source ~/.zshrc
 ```

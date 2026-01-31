@@ -7,10 +7,10 @@
 #   list: 列出所有服务商
 #   test: 测试当前配置
 # 用法:
-#   siti ai switch <provider>    切换到指定服务商
-#   siti ai current              显示当前配置
-#   siti ai list                 列出所有服务商
-#   siti ai test                 测试当前配置
+#   siti ai switch <provider> [--persist]    切换到指定服务商（默认临时，加 --persist 持久化）
+#   siti ai current                          显示当前配置
+#   siti ai list                             列出所有服务商
+#   siti ai test                             测试当前配置
 
 ZSHRC="$HOME/.zshrc"
 
@@ -18,9 +18,10 @@ ZSHRC="$HOME/.zshrc"
 list_providers() {
   echo "可用的 AI 服务商:"
   
-  # 从 ~/.zshrc 提取所有 *_BASE_URL（排除 ANTHROPIC_BASE_URL）
+  # 从 ~/.zshrc 提取所有 *_BASE_URL（排除 ANTHROPIC_BASE_URL 和 SKIP_ 前缀）
   grep -E '^export [A-Z_]+_BASE_URL=' "$ZSHRC" 2>/dev/null | \
     grep -v 'ANTHROPIC_BASE_URL' | \
+    grep -v '^export SKIP_' | \
     while IFS= read -r line; do
       # 提取变量名和值
       provider=$(echo "$line" | sed -E 's/export ([A-Z_]+)_BASE_URL=.*/\1/')
@@ -78,6 +79,7 @@ show_current() {
 # 切换服务商
 switch_provider() {
   local provider="$1"
+  local persist_flag="$2"
   
   if [ -z "$provider" ]; then
     echo "❌ 请指定服务商名称" >&2
@@ -88,6 +90,12 @@ switch_provider() {
   # 转换为大写
   local provider_upper=$(echo "$provider" | tr '[:lower:]' '[:upper:]')
   
+  # 检查是否为 SKIP_ 前缀（不允许切换）
+  if [[ "$provider_upper" == SKIP_* ]]; then
+    echo "❌ 不能切换到带 SKIP_ 前缀的服务商" >&2
+    exit 1
+  fi
+  
   # 检查服务商是否存在
   if ! grep -q "^export ${provider_upper}_BASE_URL=" "$ZSHRC" 2>/dev/null; then
     echo "❌ 服务商 '$provider' 不存在" >&2
@@ -96,22 +104,39 @@ switch_provider() {
     exit 1
   fi
   
-  # 备份 ~/.zshrc
-  cp "$ZSHRC" "${ZSHRC}.backup.$(date +%Y%m%d_%H%M%S)"
+  # 决定 AUTH_TOKEN 引用（兜底到 DEFAULT_AUTH_TOKEN）
+  local auth_token_ref
+  if grep -q "^export ${provider_upper}_API_KEY=" "$ZSHRC" 2>/dev/null; then
+    auth_token_ref="\$${provider_upper}_API_KEY"
+  else
+    # 兜底：使用 DEFAULT_AUTH_TOKEN
+    auth_token_ref="\$DEFAULT_AUTH_TOKEN"
+  fi
   
-  # 使用 sed 替换 ANTHROPIC_BASE_URL
-  sed -i.tmp -E "s|^export ANTHROPIC_BASE_URL=.*|export ANTHROPIC_BASE_URL=\"\$${provider_upper}_BASE_URL\"|" "$ZSHRC"
+  # 持久模式：修改 ~/.zshrc
+  if [[ "$persist_flag" == "--persist" ]]; then
+    # 备份 ~/.zshrc
+    cp "$ZSHRC" "${ZSHRC}.backup.$(date +%Y%m%d_%H%M%S)"
+    
+    # 使用 sed 替换 ANTHROPIC_BASE_URL
+    sed -i.tmp -E "s|^export ANTHROPIC_BASE_URL=.*|export ANTHROPIC_BASE_URL=\"\$${provider_upper}_BASE_URL\"|" "$ZSHRC"
+    
+    # 使用 sed 替换 ANTHROPIC_AUTH_TOKEN
+    sed -i.tmp -E "s|^export ANTHROPIC_AUTH_TOKEN=.*|export ANTHROPIC_AUTH_TOKEN=\"${auth_token_ref}\"|" "$ZSHRC"
+    
+    # 删除临时文件
+    rm -f "${ZSHRC}.tmp"
+    
+    echo "echo '✅ 已持久化切换到 $provider（下次打开终端自动生效）';"
+  fi
   
-  # 使用 sed 替换 ANTHROPIC_AUTH_TOKEN
-  sed -i.tmp -E "s|^export ANTHROPIC_AUTH_TOKEN=.*|export ANTHROPIC_AUTH_TOKEN=\"\$${provider_upper}_API_KEY\"|" "$ZSHRC"
-  
-  # 删除临时文件
-  rm -f "${ZSHRC}.tmp"
-  
-  # 输出 export 命令（供 eval 使用）
+  # 输出 export 命令（临时模式和持久模式都输出，供当前 shell 立即生效）
   echo "export ANTHROPIC_BASE_URL=\"\$${provider_upper}_BASE_URL\";"
-  echo "export ANTHROPIC_AUTH_TOKEN=\"\$${provider_upper}_API_KEY\";"
-  echo "echo '✅ 已切换到 $provider';"
+  echo "export ANTHROPIC_AUTH_TOKEN=\"${auth_token_ref}\";"
+  
+  if [[ "$persist_flag" != "--persist" ]]; then
+    echo "echo '✅ 已切换到 $provider（仅当前终端有效）';"
+  fi
   
   exit 10  # 退出码 10 表示需要 eval
 }
@@ -143,7 +168,7 @@ test_config() {
 # 主逻辑
 case "$1" in
   switch)
-    switch_provider "$2"
+    switch_provider "$2" "$3"
     ;;
   current)
     show_current
@@ -156,16 +181,25 @@ case "$1" in
     ;;
   ""|--help|-h)
     echo "用法:"
-    echo "  siti ai switch <provider>  切换 AI 服务商"
-    echo "  siti ai current            显示当前配置"
-    echo "  siti ai list               列出所有服务商"
-    echo "  siti ai test               测试当前配置"
+    echo "  siti ai switch <provider> [--persist]  切换 AI 服务商"
+    echo "  siti ai current                        显示当前配置"
+    echo "  siti ai list                           列出所有服务商"
+    echo "  siti ai test                           测试当前配置"
+    echo ""
+    echo "选项:"
+    echo "  --persist    持久化切换（修改 ~/.zshrc，下次打开终端自动生效）"
+    echo "               不加此参数则仅在当前终端临时切换"
+    echo ""
+    echo "规则:"
+    echo "  • 服务商需要在 ~/.zshrc 中定义 <PROVIDER>_BASE_URL"
+    echo "  • 如果 <PROVIDER>_API_KEY 不存在，会使用 DEFAULT_AUTH_TOKEN 兜底"
+    echo "  • 带 SKIP_ 前缀的配置不会被扫描和切换"
     echo ""
     echo "示例:"
-    echo "  siti ai list               # 查看所有服务商"
-    echo "  siti ai switch minimax     # 切换到 MiniMax"
-    echo "  siti ai switch zhipu       # 切换到智谱"
-    echo "  siti ai current            # 查看当前配置"
+    echo "  siti ai list                    # 查看所有服务商"
+    echo "  siti ai switch minimax          # 临时切换到 MiniMax（仅当前终端）"
+    echo "  siti ai switch zhipu --persist  # 持久化切换到智谱（修改 zshrc）"
+    echo "  siti ai current                 # 查看当前配置"
     exit 0
     ;;
   *)

@@ -50,6 +50,32 @@ EOF
   chmod +x "$SITI_DIR/commands/hello.sh"
 fi
 
+# 自动安装 shell wrapper
+WRAPPER_MARKER="# siti shell wrapper - auto-generated"
+if ! grep -q "$WRAPPER_MARKER" "$SHELL_RC" 2>/dev/null; then
+  cat >> "$SHELL_RC" << 'WRAPPER_EOF'
+
+# siti shell wrapper - auto-generated
+# 使需要修改环境变量的命令（如 proxy、ai）在当前终端立即生效
+siti() {
+  local output
+  local exit_code
+  output=$(command siti "$@" 2>&1)
+  exit_code=$?
+  if [ $exit_code -eq 10 ]; then
+    eval "$output"
+    return 0
+  else
+    echo "$output"
+    return $exit_code
+  fi
+}
+WRAPPER_EOF
+  echo "✅ Shell wrapper 已安装（siti ai、siti proxy 等命令将在当前终端生效）"
+else
+  echo "✅ Shell wrapper 已存在，跳过安装"
+fi
+
 echo "✅ siti-cli 初始化完成！"
+echo "运行 'source ~/.zshrc' 或重新打开终端使配置生效"
 echo "运行 'siti --help' 查看所有命令"
-echo "运行 'siti hello' 测试自定义命令"

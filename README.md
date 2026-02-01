@@ -12,22 +12,31 @@
 - 🔌 **端口管理** - 快速释放占用的端口
 - 🛠️ **实用工具** - 网络检测、IP 显示、日志清理等
 
-## 📦 一键安装
+## 📦 安装
+
+### Homebrew 安装（推荐）
+
+```bash
+brew tap SeSiTing/siti-cli
+brew install siti-cli
+```
+
+安装完成后，**所有功能开箱即用**：
+- ✅ Shell wrapper 已自动安装
+- ✅ 补全功能已自动配置
+- ✅ `siti ai`、`siti proxy` 等命令立即生效
+
+运行 `source ~/.zshrc` 或重新打开终端使配置生效。
+
+### 一键安装脚本
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
 ```
 
-安装后运行 `source ~/.zshrc` 使配置生效。
-
-### 其他安装方式
+### 手动安装
 
 ```bash
-# Homebrew
-brew tap SeSiTing/siti-cli
-brew install siti-cli
-
-# 手动安装
 git clone https://github.com/SeSiTing/siti-cli.git ~/.siti-cli
 echo 'export PATH="$HOME/.siti-cli/bin:$PATH"' >> ~/.zshrc
 ```
@@ -39,7 +48,8 @@ echo 'export PATH="$HOME/.siti-cli/bin:$PATH"' >> ~/.zshrc
 ```bash
 # AI 配置管理
 siti ai list              # 列出所有 AI 服务商
-siti ai switch minimax    # 切换到 MiniMax
+siti ai switch minimax    # 切换到 MiniMax（当前终端生效）
+siti ai switch minimax --persist  # 持久化切换（修改 ~/.zshrc）
 siti ai current           # 查看当前配置
 
 # 代理管理
@@ -48,6 +58,36 @@ siti proxy off            # 关闭代理
 
 # 端口管理
 siti killports 3000       # 释放 3000 端口
+siti killports 3000-3010  # 释放端口范围
+```
+
+### AI 配置说明
+
+`siti ai` 命令通过读取 `~/.zshrc` 中的环境变量来管理 AI 服务商配置：
+
+**环境变量命名规范**:
+```bash
+# 格式：<PROVIDER>_BASE_URL 和 <PROVIDER>_API_KEY（可选）
+export MINIMAX_BASE_URL="https://api.minimaxi.com/anthropic"
+export MINIMAX_API_KEY="your-api-key"  # 可选
+
+export ZHIPU_BASE_URL="https://open.bigmodel.cn/api/anthropic"
+export ZHIPU_API_KEY="your-api-key"
+
+# 如果没有 API_KEY，会使用 DEFAULT_AUTH_TOKEN 兜底
+export DEFAULT_AUTH_TOKEN="default-token"
+```
+
+**多环境配置建议**:
+```bash
+# ✅ 推荐：使用语义化名称
+export LLMS_BASE_URL="https://llms-test.blacklake.tech"
+export DEV8_BASE_URL="http://10.83.20.125:3009"
+export DEV9_BASE_URL="http://10.83.20.127:3009"
+
+# 使用
+siti ai switch llms
+siti ai switch dev8
 ```
 
 **详细使用：** 查看 [快速开始](docs/QUICK_START.md)

@@ -81,6 +81,25 @@ switch_provider() {
   local provider="$1"
   local persist_flag="$2"
   
+  # 检测 shell wrapper 是否安装
+  if ! type siti 2>/dev/null | grep -q "siti is a shell function"; then
+    echo "⚠️  检测到 shell wrapper 未安装，切换后不会在当前终端生效" >&2
+    echo "" >&2
+    echo "请运行以下命令安装 shell wrapper（仅需一次）：" >&2
+    echo "  bash /opt/homebrew/Cellar/siti-cli/*/share/siti-cli/../../../opt/homebrew/share/siti-cli/scripts/post-install.sh" >&2
+    echo "  source ~/.zshrc" >&2
+    echo "" >&2
+    echo "或从源码目录运行：" >&2
+    echo "  bash scripts/setup-shell-wrapper.sh install" >&2
+    echo "  source ~/.zshrc" >&2
+    echo "" >&2
+    read -p "是否继续（仅持久化到 ~/.zshrc）？[y/N] " response
+    if [[ ! "$response" =~ ^[yY]$ ]]; then
+      echo "已取消" >&2
+      exit 1
+    fi
+  fi
+  
   if [ -z "$provider" ]; then
     echo "❌ 请指定服务商名称" >&2
     echo "运行 'siti ai list' 查看可用服务商" >&2
@@ -127,7 +146,7 @@ switch_provider() {
     # 删除临时文件
     rm -f "${ZSHRC}.tmp"
     
-    echo "echo '✅ 已持久化切换到 $provider（下次打开终端自动生效）';"
+    echo "echo '✅ 已持久化切换到 $provider [下次打开终端自动生效]';"
   fi
   
   # 输出 export 命令（临时模式和持久模式都输出，供当前 shell 立即生效）
@@ -135,7 +154,7 @@ switch_provider() {
   echo "export ANTHROPIC_AUTH_TOKEN=\"${auth_token_ref}\";"
   
   if [[ "$persist_flag" != "--persist" ]]; then
-    echo "echo '✅ 已切换到 $provider（仅当前终端有效）';"
+    echo "echo '✅ 已切换到 $provider [仅当前终端有效]';"
   fi
   
   exit 10  # 退出码 10 表示需要 eval

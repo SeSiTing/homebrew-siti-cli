@@ -2,15 +2,16 @@
 
 # siti - CLI工具，用于执行commands目录下的脚本
 # 作者: siti
-# 版本: 1.0.5
+# 版本: 1.0.6
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.0.5"
+VERSION="1.0.6"
 
 # 检测安装方式并设置命令目录
 detect_installation_type() {
   # 检查是否通过 Homebrew 安装
-  if [[ "$SCRIPT_DIR" == "/opt/homebrew/bin" ]] || [[ "$SCRIPT_DIR" == "/usr/local/bin" ]]; then
+  if [[ "$SCRIPT_DIR" =~ ^(/opt/homebrew|/usr/local)/bin$ ]]; then
+    INSTALL_METHOD="homebrew"
     # Homebrew 安装
     if [ -d "/opt/homebrew/share/siti-cli/commands" ]; then
       COMMANDS_DIR="/opt/homebrew/share/siti-cli/commands"
@@ -19,10 +20,19 @@ detect_installation_type() {
     else
       error "Homebrew 安装的 siti-cli 命令目录未找到"
     fi
+  # 检查是否通过独立安装脚本安装
+  elif [[ "$SCRIPT_DIR" == "$HOME/.local/bin" ]] && [[ -d "$HOME/.siti-cli" ]]; then
+    INSTALL_METHOD="standalone"
+    COMMANDS_DIR="$HOME/.siti-cli/src/commands"
   else
     # 源码开发模式
+    INSTALL_METHOD="source"
     COMMANDS_DIR="$(dirname "$SCRIPT_DIR")/src/commands"
   fi
+  
+  # 导出安装方式，供子命令使用
+  export INSTALL_METHOD
+  export VERSION
 }
 
 # 检测安装类型

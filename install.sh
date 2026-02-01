@@ -2,6 +2,17 @@
 
 # siti-cli 一键安装脚本
 # 使用方式: curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
+#
+# 参数:
+#   --unattended    非交互模式，自动安装所有组件
+#   --skip-wrapper  跳过 shell wrapper 安装
+#
+# 示例:
+#   # 交互式安装（默认）
+#   curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
+#
+#   # 非交互式安装
+#   curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash -s -- --unattended
 
 set -e
 
@@ -12,6 +23,48 @@ COLOR_RED="\033[31m"
 COLOR_BLUE="\033[34m"
 COLOR_BOLD="\033[1m"
 COLOR_RESET="\033[0m"
+
+# 默认选项
+UNATTENDED=false
+SKIP_WRAPPER=false
+
+# 解析参数
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --unattended)
+      UNATTENDED=true
+      shift
+      ;;
+    --skip-wrapper)
+      SKIP_WRAPPER=true
+      shift
+      ;;
+    --help|-h)
+      echo "siti-cli 安装脚本"
+      echo ""
+      echo "用法:"
+      echo "  curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash"
+      echo ""
+      echo "参数:"
+      echo "  --unattended     非交互模式，自动安装所有组件"
+      echo "  --skip-wrapper   跳过 shell wrapper 安装"
+      echo "  --help           显示帮助信息"
+      echo ""
+      echo "示例:"
+      echo "  # 交互式安装"
+      echo "  curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash"
+      echo ""
+      echo "  # 非交互式安装"
+      echo "  curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash -s -- --unattended"
+      exit 0
+      ;;
+    *)
+      echo "未知参数: $1"
+      echo "运行 'bash install.sh --help' 查看帮助"
+      exit 1
+      ;;
+  esac
+done
 
 print_success() {
   echo -e "${COLOR_GREEN}✅ $1${COLOR_RESET}"
@@ -97,6 +150,11 @@ ask_user() {
   local prompt="$1"
   local default="${2:-y}"
   
+  # 非交互模式直接返回默认值
+  if [ "$UNATTENDED" = true ]; then
+    return 0
+  fi
+  
   if [ "$default" = "y" ]; then
     prompt="$prompt [Y/n] "
   else
@@ -140,6 +198,9 @@ install_siti() {
   # 创建符号链接
   ln -sf "$install_dir/bin/siti" "$bin_dir/siti"
   chmod +x "$install_dir/bin/siti"
+  
+  # 记录安装方式
+  echo "standalone" > "$install_dir/.install-source"
   
   print_success "siti-cli 已安装到 $install_dir"
   echo ""
@@ -254,7 +315,9 @@ main() {
   local shell_type=$(detect_shell)
   
   # 显示欢迎信息
-  clear
+  if [ "$UNATTENDED" != true ]; then
+    clear
+  fi
   print_header "╔════════════════════════════════════════╗"
   print_header "║      siti-cli 安装程序                 ║"
   print_header "║  个人命令行工具集                      ║"
@@ -263,6 +326,9 @@ main() {
   
   print_info "操作系统: $os"
   print_info "Shell: $shell_type"
+  if [ "$UNATTENDED" = true ]; then
+    print_info "模式: 非交互式（--unattended）"
+  fi
   echo ""
   
   # 检查依赖
@@ -286,7 +352,11 @@ main() {
   echo "  • siti ai switch       - AI 配置切换"
   echo ""
   
-  if ask_user "是否安装 shell 包装函数？" "y"; then
+  # 跳过 wrapper 安装
+  if [ "$SKIP_WRAPPER" = true ]; then
+    print_warning "跳过 shell 包装函数安装（--skip-wrapper）"
+    echo ""
+  elif ask_user "是否安装 shell 包装函数？" "y"; then
     echo ""
     setup_wrapper
   else
@@ -297,7 +367,7 @@ main() {
     echo "  eval \"\$(siti ai switch minimax)\""
     echo ""
     print_info "稍后可以运行以下命令安装："
-    echo "  ~/.siti-cli/scripts/setup-shell-wrapper.sh install"
+    echo "  eval \"\$(siti init zsh)\" >> ~/.zshrc"
     echo ""
   fi
   

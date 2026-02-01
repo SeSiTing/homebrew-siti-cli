@@ -19,10 +19,25 @@ _siti() {
         siti_script="$_SITI_SCRIPT_PATH"
     fi
     
+    # 智能检测 commands 目录（兼容 Homebrew 和源码安装）
     local script_dir
     script_dir=$(dirname "$siti_script")
     local commands_dir
-    commands_dir="$(dirname "$script_dir")/src/commands"
+    
+    # 检查是否通过 Homebrew 安装
+    if [[ "$script_dir" == "/opt/homebrew/bin" ]] || [[ "$script_dir" == "/usr/local/bin" ]]; then
+        # Homebrew 安装
+        if [ -d "/opt/homebrew/share/siti-cli/commands" ]; then
+            commands_dir="/opt/homebrew/share/siti-cli/commands"
+        elif [ -d "/usr/local/share/siti-cli/commands" ]; then
+            commands_dir="/usr/local/share/siti-cli/commands"
+        else
+            return 1
+        fi
+    else
+        # 源码开发模式
+        commands_dir="$(dirname "$script_dir")/src/commands"
+    fi
     
     # 如果 commands 目录不存在，返回
     if [ ! -d "$commands_dir" ]; then

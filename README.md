@@ -2,7 +2,7 @@
 
 > 🚀 个人命令行工具集，简化日常开发操作
 
-[![GitHub](https://img.shields.io/badge/GitHub-siti--cli-blue?logo=github)](https://github.com/SeSiTing/siti-cli)
+[![GitHub](https://img.shields.io/badge/GitHub-siti--cli-blue?logo=github)](https://github.com/SeSiTing/homebrew-siti-cli)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## ✨ 核心功能
@@ -50,14 +50,14 @@ source ~/.zshrc
 适合日常开发使用，提供最佳用户体验。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SeSiTing/homebrew-siti-cli/main/install.sh | bash
 ```
 
 安装过程中会**交互式询问**是否安装 shell wrapper，选择 `y` 即可自动配置。
 
 **非交互式安装**（用于自动化脚本）：
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SeSiTing/siti-cli/main/install.sh | bash -s -- --unattended
+curl -fsSL https://raw.githubusercontent.com/SeSiTing/homebrew-siti-cli/main/install.sh | bash -s -- --unattended
 ```
 
 **特点**：
@@ -173,8 +173,8 @@ siti ai switch dev8
 
 欢迎贡献代码、报告问题或提出建议！
 
-- 报告问题：[GitHub Issues](https://github.com/SeSiTing/siti-cli/issues)
-- 贡献代码：[Pull Requests](https://github.com/SeSiTing/siti-cli/pulls)
+- 报告问题：[GitHub Issues](https://github.com/SeSiTing/homebrew-siti-cli/issues)
+- 贡献代码：[Pull Requests](https://github.com/SeSiTing/homebrew-siti-cli/pulls)
 
 ## 📄 许可证
 

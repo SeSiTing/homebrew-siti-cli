@@ -189,10 +189,17 @@ install_siti() {
   if [ -d "$install_dir" ]; then
     print_info "检测到已安装，正在更新..."
     cd "$install_dir"
+    # 检查并修复错误的 remote URL
+    current_remote=$(git config --get remote.origin.url 2>/dev/null || echo "")
+    if [[ "$current_remote" == *"SeSiTing/siti-cli.git"* ]]; then
+      print_warning "检测到旧仓库地址，正在更新..."
+      git remote set-url origin https://github.com/SeSiTing/homebrew-siti-cli.git
+      print_success "仓库地址已更新"
+    fi
     git pull origin main
   else
     print_info "正在下载 siti-cli..."
-    git clone https://github.com/SeSiTing/siti-cli.git "$install_dir"
+    git clone https://github.com/SeSiTing/homebrew-siti-cli.git "$install_dir"
   fi
   
   # 创建符号链接
@@ -305,7 +312,7 @@ show_completion() {
   echo "  siti proxy off          # 关闭代理"
   echo ""
   
-  print_info "更多信息: https://github.com/SeSiTing/siti-cli"
+  print_info "更多信息: https://github.com/SeSiTing/homebrew-siti-cli"
   echo ""
 }
 

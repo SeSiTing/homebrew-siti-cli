@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2026-02-01
+
+### Fixed
+- 修复独立安装脚本克隆错误的仓库地址
+  - 从 `https://github.com/SeSiTing/siti-cli.git` 改为 `https://github.com/SeSiTing/homebrew-siti-cli.git`
+  - 影响文件：install.sh, README.md
+- 修复独立安装用户无法获取最新版本的问题
+- 添加自动检测和修复旧仓库地址的逻辑（对已安装用户透明升级）
+
+### Changed
+- 更新独立安装脚本 URL 到正确的仓库地址
+- 更新文档链接统一使用 `homebrew-siti-cli`
+
 ## [1.0.7] - 2026-02-01
 
 ### Fixed

@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-02-01
+
+### Changed
+- 重构 AI 跳过机制：从 `SKIP_` 前缀改为 `SITI_AI_SKIP` 变量
+  - 使用 `export SITI_AI_SKIP="OPENAI,BAILIAN"` 标记要跳过的服务商
+  - 移除 `SKIP_` 前缀要求，避免影响其他程序使用原变量名
+  - 支持从环境变量或 `.zshrc` 读取跳过列表
+
+### Technical
+- `ai.sh` 的 `list_providers()` 和 `switch_provider()` 改用 `SITI_AI_SKIP` 检查
+- 新增 `get_skip_list()` 辅助函数，统一读取跳过列表
+- 跳过列表格式：逗号分隔的大写服务商名称（如 "OPENAI,BAILIAN"）
+
+### Migration Guide
+
+如果你的 `.zshrc` 中使用了 `SKIP_` 前缀：
+
+```bash
+# 旧方式（v1.2.1 及之前）
+export SKIP_OPENAI_BASE_URL="https://api.openai.com/v1"
+export SKIP_BAILIAN_BASE_URL="https://dashscope.aliyuncs.com/v1"
+
+# 新方式（v1.2.2+）
+export OPENAI_BASE_URL="https://api.openai.com/v1"
+export BAILIAN_BASE_URL="https://dashscope.aliyuncs.com/v1"
+export SITI_AI_SKIP="OPENAI,BAILIAN"
+```
+
+好处：其他程序仍然可以使用 `OPENAI_BASE_URL` 等变量。
+
 ## [1.2.1] - 2026-02-01
 
 ### Changed

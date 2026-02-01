@@ -1,18 +1,18 @@
 # siti-cli
 
-> 🚀 个人命令行工具集，简化日常开发操作
+> 个人命令行工具集，简化日常开发操作
 
 [![GitHub](https://img.shields.io/badge/GitHub-siti--cli-blue?logo=github)](https://github.com/SeSiTing/homebrew-siti-cli)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## ✨ 核心功能
+## 核心功能
 
-- 🔄 **AI 配置管理** - 快速切换 AI 服务商（MiniMax、智谱、OpenRouter 等）
-- 🌐 **代理管理** - 一键开关终端代理
-- 🔌 **端口管理** - 快速释放占用的端口
-- 🛠️ **实用工具** - 网络检测、IP 显示、日志清理等
+- **AI 配置管理** - 快速切换 AI 服务商（MiniMax、智谱、OpenRouter 等）
+- **代理管理** - 一键开关终端代理
+- **端口管理** - 快速释放占用的端口
+- **实用工具** - 网络检测、IP 显示、日志清理等
 
-## 📦 安装
+## 安装
 
 siti-cli 提供两种安装方式，根据你的使用场景选择：
 
@@ -41,10 +41,11 @@ source ~/.zshrc
 ```
 
 **特点**：
-- ✅ 包管理器统一管理，卸载干净
-- ✅ 版本化更新，稳定可靠
-- ✅ 适合 CI/CD 和自动化场景
-- ⚠️  需手动配置 wrapper（Homebrew 自动配置可能因权限失败）
+- 包管理器统一管理，卸载干净
+- 版本化更新，稳定可靠
+- 适合 CI/CD 和自动化场景
+
+**注意**：需手动配置 wrapper（自动配置可能因权限失败）
 
 ### 方式 B：独立安装脚本
 
@@ -62,11 +63,12 @@ curl -fsSL https://raw.githubusercontent.com/SeSiTing/homebrew-siti-cli/main/ins
 ```
 
 **特点**：
-- ✅ 一键安装，交互式配置
-- ✅ 自动安装 shell wrapper
-- ✅ 最佳用户体验
-- ✅ 支持非交互模式
-- ℹ️  不适合需要包管理器统一管理的场景
+- 一键安装，交互式配置
+- 自动安装 shell wrapper
+- 最佳用户体验
+- 支持非交互模式
+
+**说明**：不适合需要包管理器统一管理的场景
 
 ### 安装方式对比
 
@@ -119,7 +121,7 @@ source ~/.zshrc
 
 **详细说明：** 查看 [安装指南](docs/INSTALL.md)
 
-## 🎯 快速开始
+## 快速开始
 
 ```bash
 # 查看所有命令
@@ -162,7 +164,7 @@ export DEFAULT_AUTH_TOKEN="default-token"
 
 **多环境配置建议**:
 ```bash
-# ✅ 推荐：使用语义化名称
+# 推荐：使用语义化名称
 export LLMS_BASE_URL="https://llms-test.blacklake.tech"
 export DEV8_BASE_URL="http://10.83.20.125:3009"
 export DEV9_BASE_URL="http://10.83.20.127:3009"
@@ -172,32 +174,47 @@ siti ai switch llms
 siti ai switch dev8
 ```
 
+**跳过特定服务商**：
+
+如果某些 BASE_URL 被其他程序使用，不希望被 siti-cli 列出或切换，可以使用跳过列表：
+
+```bash
+# 在 ~/.zshrc 中添加
+export OPENAI_BASE_URL="https://api.openai.com/v1"
+export BAILIAN_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
+export SITI_AI_SKIP="OPENAI,BAILIAN"  # 逗号分隔的服务商名称（大写）
+
+# 这样 OPENAI_BASE_URL 和 BAILIAN_BASE_URL 仍然存在（其他程序可用）
+# 但 siti ai list 不会显示它们
+# siti ai switch openai 会提示"在跳过列表中"
+```
+
 **详细使用：** 查看 [快速开始](docs/QUICK_START.md)
 
-## 🌟 特色
+## 特色
 
-- ✅ **零配置** - 自动发现 AI 服务商配置
-- ✅ **立即生效** - 命令在当前终端立即生效
-- ✅ **易于扩展** - 支持自定义命令
-- ✅ **跨平台** - 支持 macOS 和 Linux
+- **零配置** - 自动发现 AI 服务商配置
+- **立即生效** - 命令在当前终端立即生效
+- **易于扩展** - 支持自定义命令
+- **跨平台** - 支持 macOS 和 Linux
 
-## 📚 文档
+## 文档
 
 - [快速开始](docs/QUICK_START.md) - 5 分钟上手指南
 - [安装指南](docs/INSTALL.md) - 详细安装说明和对比
 - [更新日志](CHANGELOG.md) - 版本历史
 
-## 🤝 贡献
+## 贡献
 
 欢迎贡献代码、报告问题或提出建议！
 
 - 报告问题：[GitHub Issues](https://github.com/SeSiTing/homebrew-siti-cli/issues)
 - 贡献代码：[Pull Requests](https://github.com/SeSiTing/homebrew-siti-cli/pulls)
 
-## 📄 许可证
+## 许可证
 
 MIT License - 查看 [LICENSE](LICENSE) 文件了解详情
 
 ---
 
-**Star ⭐ 如果你觉得有用！**
+**Star 如果你觉得有用！**

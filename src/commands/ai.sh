@@ -14,17 +14,35 @@
 
 ZSHRC="$HOME/.zshrc"
 
+# 读取跳过列表（从环境变量或 zshrc）
+get_skip_list() {
+  local skip_list="${SITI_AI_SKIP:-}"
+  if [ -z "$skip_list" ]; then
+    skip_list=$(grep '^export SITI_AI_SKIP=' "$ZSHRC" 2>/dev/null | sed -E 's/.*="(.*)"/\1/')
+  fi
+  echo "$skip_list"
+}
+
 # 列出所有可用的 AI 服务商
 list_providers() {
   echo "可用的 AI 服务商:"
   
-  # 从 ~/.zshrc 提取所有 *_BASE_URL（排除 ANTHROPIC_BASE_URL 和 SKIP_ 前缀）
+  local skip_list
+  skip_list=$(get_skip_list)
+  
+  # 从 ~/.zshrc 提取所有 *_BASE_URL（排除 ANTHROPIC_BASE_URL）
   grep -E '^export [A-Z0-9_]+_BASE_URL=' "$ZSHRC" 2>/dev/null | \
     grep -v 'ANTHROPIC_BASE_URL' | \
-    grep -v '^export SKIP_' | \
+    grep -v 'SITI_AI_SKIP' | \
     while IFS= read -r line; do
       # 提取变量名和值
       provider=$(echo "$line" | sed -E 's/export ([A-Z0-9_]+)_BASE_URL=.*/\1/')
+      
+      # 检查是否在跳过列表中（逗号分隔）
+      if [[ ",$skip_list," == *",$provider,"* ]]; then
+        continue
+      fi
+      
       url=$(echo "$line" | sed -E 's/.*="(.*)"/\1/')
       
       # 转换为小写显示
@@ -105,9 +123,13 @@ switch_provider() {
   # 转换为大写
   local provider_upper=$(echo "$provider" | tr '[:lower:]' '[:upper:]')
   
-  # 检查是否为 SKIP_ 前缀（不允许切换）
-  if [[ "$provider_upper" == SKIP_* ]]; then
-    echo "❌ 不能切换到带 SKIP_ 前缀的服务商" >&2
+  # 读取跳过列表
+  local skip_list
+  skip_list=$(get_skip_list)
+  
+  # 检查是否在跳过列表中
+  if [[ ",$skip_list," == *",$provider_upper,"* ]]; then
+    echo "❌ 服务商 '$provider' 在跳过列表中（SITI_AI_SKIP），不允许切换" >&2
     exit 1
   fi
   
@@ -208,7 +230,8 @@ case "$1" in
     echo "规则:"
     echo "  • 服务商需要在 ~/.zshrc 中定义 <PROVIDER>_BASE_URL"
     echo "  • 如果 <PROVIDER>_API_KEY 不存在，会使用 DEFAULT_AUTH_TOKEN 兜底"
-    echo "  • 带 SKIP_ 前缀的配置不会被扫描和切换"
+    echo "  • 使用 SITI_AI_SKIP 环境变量跳过特定服务商（逗号分隔）"
+  echo "    示例: export SITI_AI_SKIP=\"OPENAI,BAILIAN\""
     echo ""
     echo "示例:"
     echo "  siti ai list                    # 查看所有服务商"

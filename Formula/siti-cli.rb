@@ -1,8 +1,8 @@
 class SitiCli < Formula
   desc "个人命令行工具集"
   homepage "https://github.com/SeSiTing/homebrew-siti-cli"
-  url "https://github.com/SeSiTing/homebrew-siti-cli/archive/v1.0.4.tar.gz"
-  sha256 "eacab8f50b8e3a9f986d13640f78dc963876829ba3a5195a1c89dc427b85d15e"
+  url "https://github.com/SeSiTing/homebrew-siti-cli/archive/v1.0.5.tar.gz"
+  sha256 "ac9e50d10d66eb5c8db6db77c837455b7f81596fea167b116397d08acdf74d12"
   license "MIT"
 
   def install

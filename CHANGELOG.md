@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-01
+
+### Added
+- ✨ 新增 `siti uninstall` 命令（独立安装）
+  - 交互式确认后清理 `.zshrc` 中的 wrapper、补全、PATH 配置
+  - 删除符号链接 `~/.local/bin/siti` 和安装目录 `~/.siti-cli`
+  - Homebrew 安装时提示使用 `brew uninstall siti-cli`
+- 📦 新增迁移脚本 `scripts/migrate-to-unified.sh`
+  - 将旧目录 `~/.siti` 安全迁移到 `~/.siti-cli`（备份后迁移）
+
+### Changed
+- **目录统一**：用户数据与程序统一使用 `~/.siti-cli`
+  - 原 `~/.siti`（commands、config、logs、cache）合并到 `~/.siti-cli`
+  - 独立安装：程序与用户数据均在 `~/.siti-cli`
+  - Homebrew：用户数据目录为 `~/.siti-cli`（程序在 Cellar）
+- 🔄 安装/升级时自动检测并迁移旧目录 `~/.siti` 到 `~/.siti-cli`
+  - 迁移前备份到 `~/.siti.backup.TIMESTAMP`
+  - `post-install.sh` 与 `install.sh` 均支持迁移
+- 📝 `post-uninstall.sh` 提示用户数据保留在 `~/.siti-cli`
+- 📝 README 增加卸载说明和目录结构说明
+
+### Technical
+- `bin/siti` 中用户命令目录从 `$HOME/.siti/commands` 改为 `$HOME/.siti-cli/commands`
+- 配置文件 `siti.conf` 中路径统一为 `~/.siti-cli/*`
 ## [1.1.0] - 2026-02-01
 
 ### Fixed

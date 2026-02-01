@@ -152,16 +152,16 @@ siti backup-zshrc
 
 ### 添加你自己的命令
 
-在 `~/.siti/commands/` 创建脚本：
+在 `~/.siti-cli/commands/` 创建脚本：
 
 ```bash
-cat > ~/.siti/commands/hello.sh << 'EOF'
+cat > ~/.siti-cli/commands/hello.sh << 'EOF'
 #!/bin/bash
 # 描述: 打招呼
 echo "Hello, $(whoami)!"
 EOF
 
-chmod +x ~/.siti/commands/hello.sh
+chmod +x ~/.siti-cli/commands/hello.sh
 siti hello
 ```
 
@@ -170,7 +170,7 @@ siti hello
 使用 `exit 10` 标记：
 
 ```bash
-cat > ~/.siti/commands/myenv.sh << 'EOF'
+cat > ~/.siti-cli/commands/myenv.sh << 'EOF'
 #!/bin/bash
 # 描述: 设置我的环境
 
@@ -179,7 +179,7 @@ echo "echo '✅ 环境变量已设置';"
 exit 10  # 告诉包装函数需要 eval
 EOF
 
-chmod +x ~/.siti/commands/myenv.sh
+chmod +x ~/.siti-cli/commands/myenv.sh
 siti myenv  # 自动在当前 shell 生效
 ```
 

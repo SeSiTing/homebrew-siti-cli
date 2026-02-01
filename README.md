@@ -75,9 +75,10 @@ curl -fsSL https://raw.githubusercontent.com/SeSiTing/homebrew-siti-cli/main/ins
 | **安装命令** | `brew install siti-cli` | `curl ... \| bash` |
 | **Wrapper 配置** | 需手动 `siti init` | 自动配置（可选） |
 | **更新方式** | `brew upgrade` 或 `siti upgrade` | `siti upgrade` |
-| **卸载方式** | `brew uninstall siti-cli` | 删除 `~/.siti-cli` 和配置 |
+| **卸载方式** | `brew uninstall siti-cli` | `siti uninstall` 或手动删除 `~/.siti-cli` |
 | **适用场景** | 包管理、CI/CD、自动化 | 日常开发、快速上手 |
-| **安装位置** | `/opt/homebrew` 或 `/usr/local` | `~/.siti-cli` |
+| **安装位置** | `/opt/homebrew` 或 `/usr/local` | `~/.siti-cli`（程序与用户数据统一） |
+| **用户数据** | `~/.siti-cli/`（commands、config、logs、cache） | 同上 |
 
 ### 更新
 
@@ -89,6 +90,16 @@ siti upgrade
 
 命令会自动检测安装方式并执行相应的更新操作。
 
+### 卸载（独立安装）
+
+独立安装可使用命令一键卸载：
+
+```bash
+siti uninstall
+```
+
+将自动清理 `.zshrc` 中的 wrapper、补全、PATH 配置，并删除 `~/.siti-cli`。
+
 ### 手动安装
 
 如果你想从源码安装或进行开发：
@@ -99,6 +110,8 @@ echo 'export PATH="$HOME/.siti-cli/bin:$PATH"' >> ~/.zshrc
 eval "$(~/.siti-cli/bin/siti init zsh)" >> ~/.zshrc
 source ~/.zshrc
 ```
+
+**目录结构**：所有数据统一在 `~/.siti-cli/`（程序、用户命令、配置、日志、缓存）。
 
 **详细说明：** 查看 [安装指南](docs/INSTALL.md)
 

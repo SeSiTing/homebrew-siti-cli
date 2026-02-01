@@ -209,6 +209,48 @@ install_siti() {
   # 记录安装方式
   echo "standalone" > "$install_dir/.install-source"
   
+  # 创建用户数据目录（统一使用 ~/.siti-cli）
+  mkdir -p "$install_dir"/{commands,logs,cache,config}
+  
+  # 迁移旧目录 ~/.siti 到 ~/.siti-cli
+  if [ -d "$HOME/.siti" ]; then
+    print_info "检测到旧版目录 ~/.siti，正在迁移到 ~/.siti-cli..."
+    backup_dir="$HOME/.siti.backup.$(date +%Y%m%d%H%M%S)"
+    if cp -R "$HOME/.siti" "$backup_dir" 2>/dev/null; then
+      for subdir in commands config logs cache; do
+        if [ -d "$HOME/.siti/$subdir" ] && [ "$(ls -A "$HOME/.siti/$subdir" 2>/dev/null)" ]; then
+          cp -R "$HOME/.siti/$subdir"/* "$install_dir/$subdir/" 2>/dev/null || true
+        fi
+      done
+      rm -rf "$HOME/.siti"
+      print_success "已迁移并删除旧目录 ~/.siti（备份: $backup_dir）"
+    else
+      print_warning "无法备份 ~/.siti，跳过迁移"
+    fi
+  fi
+  
+  # 创建默认配置文件（若不存在）
+  if [ ! -f "$install_dir/config/siti.conf" ]; then
+    cat > "$install_dir/config/siti.conf" << EOF
+# siti-cli 配置文件
+LOG_LEVEL="info"
+LOG_FILE="$HOME/.siti-cli/logs/siti.log"
+CACHE_DIR="$HOME/.siti-cli/cache"
+USER_COMMANDS_DIR="$HOME/.siti-cli/commands"
+EOF
+  fi
+  
+  # 创建示例命令（若不存在）
+  if [ ! -f "$install_dir/commands/hello.sh" ]; then
+    cat > "$install_dir/commands/hello.sh" << 'HELLO_EOF'
+#!/bin/bash
+# 描述: 示例用户自定义命令
+name="${1:-World}"
+echo "Hello, $name! 这是一个用户自定义命令示例。"
+HELLO_EOF
+    chmod +x "$install_dir/commands/hello.sh"
+  fi
+  
   print_success "siti-cli 已安装到 $install_dir"
   echo ""
 }

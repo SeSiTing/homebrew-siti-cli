@@ -10,6 +10,7 @@ class SitiCli < Formula
     (share/"siti-cli").install "src/commands"
     (share/"siti-cli/scripts").install "scripts/post-install.sh"
     (share/"siti-cli/scripts").install "scripts/post-uninstall.sh"
+    (share/"siti-cli/scripts").install "scripts/migrate-to-unified.sh"
     zsh_completion.install "completions/_siti" if File.exist?("completions/_siti")
     bash_completion.install "completions/siti.bash" if File.exist?("completions/siti.bash")
   end

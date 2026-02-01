@@ -2,10 +2,10 @@
 
 # siti - CLI工具，用于执行commands目录下的脚本
 # 作者: siti
-# 版本: 1.1.0
+# 版本: 1.2.0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.1.0"
+VERSION="1.2.0"
 
 # 检测安装方式并设置命令目录
 detect_installation_type() {
@@ -65,8 +65,8 @@ find_command_script() {
   local cmd="$1"
   local script_name="${cmd//-/_}.sh"
   
-  # 用户自定义命令目录
-  local user_commands_dir="$HOME/.siti/commands"
+  # 用户自定义命令目录（统一使用 ~/.siti-cli）
+  local user_commands_dir="$HOME/.siti-cli/commands"
   
   # 优先查找用户自定义命令
   if [ -f "$user_commands_dir/$script_name" ]; then
@@ -153,7 +153,7 @@ show_help() {
   
   # 获取所有可用命令（系统命令 + 用户自定义命令）
   local commands=()
-  local user_commands_dir="$HOME/.siti/commands"
+  local user_commands_dir="$HOME/.siti-cli/commands"
   
   # 收集系统命令
   for cmd_file in "$COMMANDS_DIR"/*.sh; do

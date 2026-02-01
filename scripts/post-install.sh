@@ -4,21 +4,28 @@
 # 注意：禁用 set -e，避免权限问题导致整个脚本失败
 # set -e
 
-SITI_DIR="$HOME/.siti"
+# 统一使用 ~/.siti-cli 作为用户数据目录（commands, config, logs, cache）
+SITI_DIR="$HOME/.siti-cli"
 
 echo "正在初始化 siti-cli..."
 
-# 创建目录
+# 先创建目录，再迁移（避免覆盖已存在的 ~/.siti-cli 如独立安装）
 mkdir -p "$SITI_DIR"/{commands,logs,cache,config}
+
+# 迁移旧目录 ~/.siti 到 ~/.siti-cli（调用迁移脚本）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -d "$HOME/.siti" ] && [ -f "$SCRIPT_DIR/migrate-to-unified.sh" ]; then
+  SITI_DIR="$SITI_DIR" bash "$SCRIPT_DIR/migrate-to-unified.sh" || true
+fi
 
 # 创建配置文件
 if [ ! -f "$SITI_DIR/config/siti.conf" ]; then
-  cat > "$SITI_DIR/config/siti.conf" << 'EOF'
+  cat > "$SITI_DIR/config/siti.conf" << EOF
 # siti-cli 配置文件
 LOG_LEVEL="info"
-LOG_FILE="$HOME/.siti/logs/siti.log"
-CACHE_DIR="$HOME/.siti/cache"
-USER_COMMANDS_DIR="$HOME/.siti/commands"
+LOG_FILE="$HOME/.siti-cli/logs/siti.log"
+CACHE_DIR="$HOME/.siti-cli/cache"
+USER_COMMANDS_DIR="$HOME/.siti-cli/commands"
 EOF
 fi
 
@@ -47,7 +54,7 @@ else
   echo "✅ Shell 补全配置已存在"
 fi
 
-# 创建示例命令
+# 创建示例命令（仅当目录为空或不存在 hello.sh 时）
 if [ ! -f "$SITI_DIR/commands/hello.sh" ]; then
   cat > "$SITI_DIR/commands/hello.sh" << 'EOF'
 #!/bin/bash
@@ -56,6 +63,7 @@ name="${1:-World}"
 echo "Hello, $name! 这是一个用户自定义命令示例。"
 EOF
   chmod +x "$SITI_DIR/commands/hello.sh"
+  echo "✅ 已创建示例命令 hello"
 fi
 
 # 自动安装 shell wrapper（尝试写入，失败则静默跳过）
@@ -90,6 +98,7 @@ fi
 
 echo "✅ siti-cli 初始化完成！"
 echo ""
+echo "用户数据目录: $SITI_DIR"
 echo "如果自动配置失败，请手动运行："
 echo "  eval \"\$(siti init zsh)\" >> ~/.zshrc"
 echo "  source ~/.zshrc"

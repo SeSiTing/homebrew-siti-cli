@@ -29,5 +29,5 @@ fi
 
 echo ""
 echo "✅ siti-cli 配置已清理"
-echo "📁 用户数据保留在: ~/.siti/"
-echo "   如需完全删除，请运行: rm -rf ~/.siti"
+echo "📁 用户数据保留在: ~/.siti-cli/"
+echo "   如需完全删除，请运行: rm -rf ~/.siti-cli"

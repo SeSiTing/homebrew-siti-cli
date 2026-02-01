@@ -92,10 +92,14 @@ siti upgrade
 
 ### 卸载（独立安装）
 
-独立安装可使用命令一键卸载：
+独立安装可使用命令卸载：
 
 ```bash
-siti uninstall
+# 预览将删除的内容
+siti uninstall --dry-run
+
+# 确认卸载
+siti uninstall -y
 ```
 
 将自动清理 `.zshrc` 中的 wrapper、补全、PATH 配置，并删除 `~/.siti-cli`。

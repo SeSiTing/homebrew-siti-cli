@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-02-01
+
+### Changed
+- 改进 `siti uninstall` 交互体验（Rust/Go 风格）
+  - 默认显示将删除的内容（文件列表、大小）
+  - 需要 `-y` 或 `--yes` 标志确认卸载
+  - 新增 `--dry-run` 仅预览，不执行
+  - 符合主流 CLI 工具交互模式（rustup、cargo 等）
+- 更新帮助文本和文档
+
+### Technical
+- `src/commands/uninstall.sh` 参数解析：支持 `-y/--yes`、`--dry-run`、`--help`
+- 删除交互式 `read -p` 确认，改为显式标志确认
+
 ## [1.2.0] - 2026-02-01
 
 ### Added

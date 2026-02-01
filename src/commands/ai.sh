@@ -19,12 +19,12 @@ list_providers() {
   echo "可用的 AI 服务商:"
   
   # 从 ~/.zshrc 提取所有 *_BASE_URL（排除 ANTHROPIC_BASE_URL 和 SKIP_ 前缀）
-  grep -E '^export [A-Z_]+_BASE_URL=' "$ZSHRC" 2>/dev/null | \
+  grep -E '^export [A-Z0-9_]+_BASE_URL=' "$ZSHRC" 2>/dev/null | \
     grep -v 'ANTHROPIC_BASE_URL' | \
     grep -v '^export SKIP_' | \
     while IFS= read -r line; do
       # 提取变量名和值
-      provider=$(echo "$line" | sed -E 's/export ([A-Z_]+)_BASE_URL=.*/\1/')
+      provider=$(echo "$line" | sed -E 's/export ([A-Z0-9_]+)_BASE_URL=.*/\1/')
       url=$(echo "$line" | sed -E 's/.*="(.*)"/\1/')
       
       # 转换为小写显示
@@ -51,7 +51,7 @@ show_current() {
   
   if [ -n "$base_url_line" ]; then
     # 提取引用的变量名
-    local provider_var=$(echo "$base_url_line" | sed -E 's/.*"\$([A-Z_]+)_BASE_URL".*/\1/')
+    local provider_var=$(echo "$base_url_line" | sed -E 's/.*"\$([A-Z0-9_]+)_BASE_URL".*/\1/')
     if [ -n "$provider_var" ]; then
       local provider=$(echo "$provider_var" | tr '[:upper:]' '[:lower:]')
       echo "  服务商: $provider"

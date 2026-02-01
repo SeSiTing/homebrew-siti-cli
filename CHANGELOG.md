@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-02-01
+
+### Fixed
+- 修复 `siti ai list` 不显示包含数字的服务商名称（如 LLMS8、LLMS9）
+- 修复 `siti ai switch` 无法切换到包含数字的服务商
+- 修复 `siti ai current` 解析包含数字的服务商名称失败
+
+### Technical
+- 更新正则表达式从 `[A-Z_]+` 到 `[A-Z0-9_]+` 以支持数字
+- 影响文件：src/commands/ai.sh (3 处修改)
+
 ## [1.0.6] - 2026-02-01
 
 ### Added

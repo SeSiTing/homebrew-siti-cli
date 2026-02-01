@@ -25,9 +25,11 @@ brew tap SeSiTing/siti-cli
 brew install siti-cli
 ```
 
-**配置 Shell Wrapper（推荐）**
+**重要：配置 Shell Wrapper**
 
-为了让 `siti ai switch` 和 `siti proxy` 等命令能在当前终端立即生效，需要配置 shell wrapper：
+Homebrew 安装后，部分命令（如 `siti ai switch`、`siti proxy`）需要配置 shell wrapper 才能在当前终端立即生效。
+
+如果自动配置失败（权限问题），请手动运行：
 
 ```bash
 # 查看配置内容（可选）
@@ -42,8 +44,7 @@ source ~/.zshrc
 - ✅ 包管理器统一管理，卸载干净
 - ✅ 版本化更新，稳定可靠
 - ✅ 适合 CI/CD 和自动化场景
-- ✅ 可选择是否配置 wrapper
-- ℹ️  需要手动配置 wrapper（或自动配置可能失败）
+- ⚠️  需手动配置 wrapper（Homebrew 自动配置可能因权限失败）
 
 ### 方式 B：独立安装脚本
 

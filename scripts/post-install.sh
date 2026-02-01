@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # siti-cli 安装后初始化
-set -e
+# 注意：禁用 set -e，避免权限问题导致整个脚本失败
+# set -e
 
 SITI_DIR="$HOME/.siti"
 
@@ -21,12 +22,12 @@ USER_COMMANDS_DIR="$HOME/.siti/commands"
 EOF
 fi
 
-# 配置 shell 补全
+# 配置 shell 补全（尝试写入，失败则静默跳过）
 SHELL_RC="$HOME/.zshrc"
 [ "$(basename "$SHELL")" = "bash" ] && SHELL_RC="$HOME/.bashrc"
 
 if ! grep -q "siti-cli completion" "$SHELL_RC" 2>/dev/null; then
-  cat >> "$SHELL_RC" << 'EOF'
+  if cat >> "$SHELL_RC" 2>/dev/null << 'EOF'
 
 # siti-cli completion
 if command -v siti >/dev/null 2>&1; then
@@ -37,6 +38,13 @@ if command -v siti >/dev/null 2>&1; then
   fi
 fi
 EOF
+  then
+    echo "✅ Shell 补全配置已添加"
+  else
+    echo "⚠️  无法写入 $SHELL_RC（可能是权限问题），请手动配置补全" >&2
+  fi
+else
+  echo "✅ Shell 补全配置已存在"
 fi
 
 # 创建示例命令
@@ -50,10 +58,10 @@ EOF
   chmod +x "$SITI_DIR/commands/hello.sh"
 fi
 
-# 自动安装 shell wrapper
+# 自动安装 shell wrapper（尝试写入，失败则静默跳过）
 WRAPPER_MARKER="# siti shell wrapper - auto-generated"
 if ! grep -q "$WRAPPER_MARKER" "$SHELL_RC" 2>/dev/null; then
-  cat >> "$SHELL_RC" << 'WRAPPER_EOF'
+  if cat >> "$SHELL_RC" 2>/dev/null << 'WRAPPER_EOF'
 
 # siti shell wrapper - auto-generated
 # 使需要修改环境变量的命令（如 proxy、ai）在当前终端立即生效
@@ -71,11 +79,19 @@ siti() {
   fi
 }
 WRAPPER_EOF
-  echo "✅ Shell wrapper 已安装（siti ai、siti proxy 等命令将在当前终端生效）"
+  then
+    echo "✅ Shell wrapper 已安装（siti ai、siti proxy 等命令将在当前终端生效）"
+  else
+    echo "⚠️  无法写入 $SHELL_RC（可能是权限问题），请手动配置 wrapper" >&2
+  fi
 else
   echo "✅ Shell wrapper 已存在，跳过安装"
 fi
 
 echo "✅ siti-cli 初始化完成！"
-echo "运行 'source ~/.zshrc' 或重新打开终端使配置生效"
+echo ""
+echo "如果自动配置失败，请手动运行："
+echo "  eval \"\$(siti init zsh)\" >> ~/.zshrc"
+echo "  source ~/.zshrc"
+echo ""
 echo "运行 'siti --help' 查看所有命令"

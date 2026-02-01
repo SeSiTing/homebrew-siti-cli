@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-01
+
+### Fixed
+- 🐛 彻底修复 `siti ai switch` 误报 wrapper 未配置的问题
+  - 改用检查 `~/.zshrc` 文件内容，而非当前 shell 函数状态
+  - 解决子进程（bash）无法检测到父 shell（zsh）函数的问题
+- 🔒 修复 Homebrew `post_install` 因权限问题导致安装失败
+  - 移除 `set -e`，允许权限错误时继续执行
+  - shell wrapper 和补全配置失败时静默跳过，显示友好提示
+  - 不再导致 `brew upgrade` 报错
+
+### Changed
+- ✨ 添加 Homebrew `caveats` 提示
+  - 安装后清晰告知用户如何手动配置 shell wrapper
+  - 说明哪些命令需要 wrapper 才能生效
+- 📝 改进 README 安装说明
+  - 明确 Homebrew 安装需要手动配置 wrapper
+  - 强调自动配置可能因权限失败
+- 🛡️ 增强 `post-install.sh` 健壮性
+  - 写入失败时提供明确的错误提示
+  - 提供手动配置的后备方案
+
+### Technical
+- 修改 `ai.sh` 的 wrapper 检测逻辑：从 `declare -f siti` 改为 `grep -q "# siti shell wrapper" ~/.zshrc`
+- 修改 `post-install.sh` 所有 `cat >> ~/.zshrc` 操作为条件写入，失败时不中断脚本
+
 ## [1.0.9] - 2026-02-01
 
 ### Fixed

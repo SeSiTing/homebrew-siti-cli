@@ -18,6 +18,22 @@ class SitiCli < Formula
     system "#{share}/siti-cli/scripts/post-install.sh"
   end
 
+  def caveats
+    <<~EOS
+      ⚠️  重要：siti-cli 的部分命令需要配置 shell wrapper 才能在当前终端生效
+
+      如果自动配置失败（权限问题），请手动运行：
+        eval "$(siti init zsh)" >> ~/.zshrc
+        source ~/.zshrc
+
+      配置后，以下命令将在当前终端立即生效：
+        • siti ai switch <provider>  - 切换 AI API 配置
+        • siti proxy on/off          - 代理管理
+
+      运行 'siti --help' 查看所有命令
+    EOS
+  end
+
   def post_uninstall
     system "#{share}/siti-cli/scripts/post-uninstall.sh"
   end

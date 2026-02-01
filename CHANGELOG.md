@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2026-02-01
+
+### Fixed
+- 修复独立安装脚本重复追加 PATH 配置到 ~/.zshrc 的问题
+- 修复 `siti ai switch` 错误检测 wrapper 未安装的问题
+  - 改用 `declare -f` 检测函数是否存在
+  - 改进错误提示，引导使用 `siti init` 命令
+- 添加自动清理重复配置的逻辑
+
+### Changed
+- 改进 PATH 配置检测，使用唯一标记 "# siti-cli PATH configuration - auto-generated"
+- 优化 shell wrapper 检测逻辑，更健壮
+
 ## [1.0.8] - 2026-02-01
 
 ### Fixed

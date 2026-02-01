@@ -213,13 +213,47 @@ install_siti() {
   echo ""
 }
 
+# 去除重复的 siti-cli PATH 配置
+cleanup_duplicates() {
+  local config_file=$(get_config_file)
+  local path_marker="# siti-cli PATH configuration - auto-generated"
+  
+  # 已使用新标记则只清理旧块
+  if grep -q "$path_marker" "$config_file" 2>/dev/null; then
+    while grep -q "^# siti-cli$" "$config_file" 2>/dev/null; do
+      cp "$config_file" "${config_file}.bak.$$"
+      sed '/^# siti-cli$/,/^export PATH=.*$/d' "${config_file}.bak.$$" > "$config_file"
+      rm -f "${config_file}.bak.$$"
+    done
+    return 0
+  fi
+  
+  local count=$(grep -c "^# siti-cli$" "$config_file" 2>/dev/null || echo "0")
+  if [ "$count" -gt 1 ]; then
+    print_warning "检测到 $count 个重复的 siti-cli PATH 配置，正在清理..."
+    cp "$config_file" "${config_file}.backup.$(date +%Y%m%d_%H%M%S)"
+    while grep -q "^# siti-cli$" "$config_file" 2>/dev/null; do
+      cp "$config_file" "${config_file}.bak.$$"
+      sed '/^# siti-cli$/,/^export PATH=.*$/d' "${config_file}.bak.$$" > "$config_file"
+      rm -f "${config_file}.bak.$$"
+    done
+    cat >> "$config_file" << 'EOF'
+
+# siti-cli PATH configuration - auto-generated
+export PATH="$HOME/.local/bin:$PATH"
+EOF
+    print_success "重复配置已清理"
+  fi
+}
+
 # 添加到 PATH
 setup_path() {
   local config_file=$(get_config_file)
   local bin_dir="$HOME/.local/bin"
+  local path_marker="# siti-cli PATH configuration - auto-generated"
   
-  # 检查是否已添加
-  if grep -q "$bin_dir" "$config_file" 2>/dev/null; then
+  # 检查是否已添加（使用唯一标记）
+  if grep -q "$path_marker" "$config_file" 2>/dev/null; then
     print_info "PATH 已配置"
     return 0
   fi
@@ -229,7 +263,7 @@ setup_path() {
   # 添加到配置文件
   cat >> "$config_file" << EOF
 
-# siti-cli
+$path_marker
 export PATH="\$HOME/.local/bin:\$PATH"
 EOF
   
@@ -346,6 +380,9 @@ main() {
   
   # 安装 siti-cli
   install_siti
+  
+  # 清理重复的 PATH 配置（如有）
+  cleanup_duplicates
   
   # 设置 PATH
   setup_path

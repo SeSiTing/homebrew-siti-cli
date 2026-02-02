@@ -48,8 +48,8 @@ list_providers() {
       # 转换为小写显示
       provider_lower=$(echo "$provider" | tr '[:upper:]' '[:lower:]')
       
-      # 检查是否为当前使用的
-      if grep -q "ANTHROPIC_BASE_URL=\"\$$provider" "$ZSHRC" 2>/dev/null; then
+      # 检查是否为当前使用的（^export 排除注释行，\$ 转义供 grep 按字面量匹配）
+      if grep -qE "^export ANTHROPIC_BASE_URL=\"\\\$${provider}_BASE_URL\"" "$ZSHRC" 2>/dev/null; then
         printf "  • %-15s %s ← 当前\n" "$provider_lower" "$url"
       else
         printf "  • %-15s %s\n" "$provider_lower" "$url"

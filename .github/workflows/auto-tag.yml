@@ -36,25 +36,29 @@ jobs:
         run: |
           if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "refs/tags/v$VERSION"; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "GitHub 上已存在标签 v$VERSION，跳过"
+            echo "标签 v$VERSION 已存在，跳过"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "GitHub 上不存在 v$VERSION，准备创建..."
+            echo "标签 v$VERSION 不存在，准备创建"
           fi
 
-      - name: Calculate SHA256 and update Formula
+      - name: Create temp tag to generate archive
+        if: steps.check_tag.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # 用临时名字打 tag，让 GitHub 生成 archive 用于计算 sha256
+          git tag "_tmp_v$VERSION"
+          git push origin "_tmp_v$VERSION"
+
+      - name: Calculate SHA256
         if: steps.check_tag.outputs.exists == 'false'
         id: calc_sha
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          # 先创建临时 tag 让 GitHub 生成 archive
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
-
-          # 等待 GitHub archive CDN 就绪
-          URL="https://github.com/${{ github.repository }}/archive/v${VERSION}.tar.gz"
-          for i in 1 2 3 4 5; do
+          URL="https://github.com/${{ github.repository }}/archive/_tmp_v${VERSION}.tar.gz"
+          for i in $(seq 1 10); do
             curl -sL "$URL" -o archive.tar.gz
             SIZE=$(stat -c%s archive.tar.gz 2>/dev/null || stat -f%z archive.tar.gz)
             if [ "$SIZE" -gt 1024 ]; then
@@ -63,12 +67,11 @@ jobs:
             echo "⏳ archive 未就绪，等待 10s（第 $i 次）..."
             sleep 10
           done
-
           SHA256=$(sha256sum archive.tar.gz | cut -d' ' -f1)
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
-          echo "📦 Archive SHA256: $SHA256"
+          echo "📦 SHA256: $SHA256"
 
-      - name: Update Formula with correct SHA256
+      - name: Update Formula and create real tag
         if: steps.check_tag.outputs.exists == 'false'
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -81,18 +84,19 @@ jobs:
           echo "✅ Formula 已更新:"
           grep -E "url|sha256" Formula/siti-cli.rb | head -2
 
-          # 提交更新后的 Formula
+          # commit 更新后的 Formula 到 main
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add Formula/siti-cli.rb
           git commit -m "chore(formula): update to v${VERSION}"
-
-          # 移动 tag 到包含正确 Formula 的 commit
-          git tag -f "v$VERSION"
-          git push origin "v$VERSION" --force
-
-          # 推送 main（含更新的 Formula）
           git pull --rebase origin main
           git push origin HEAD:main
 
-          echo "✅ 已创建标签 v$VERSION（含正确 Formula SHA256）"
+          # 在包含正确 Formula 的 commit 上打正式 tag
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+
+          # 清理临时 tag
+          git push origin --delete "_tmp_v$VERSION"
+
+          echo "✅ 标签 v$VERSION 创建成功（Formula sha256 已包含）"

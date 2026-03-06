@@ -24,10 +24,25 @@ brew install siti-cli
 
 安装后若 `siti ai switch` 不生效，需手动配置 wrapper：`eval "$(siti init zsh)" >> ~/.zshrc`，再 `source ~/.zshrc`。
 
-| 方式       | 安装命令           | 更新           | 卸载                 |
-|------------|--------------------|----------------|----------------------|
-| 一键安装   | `curl ... \| bash` | `siti upgrade` | `siti uninstall -y`  |
-| Homebrew   | `brew install siti-cli` | `brew upgrade` 或 `siti upgrade` | `brew uninstall siti-cli` |
+| 安装方式   | 安装命令                              | 更新命令                          | 卸载命令                                    |
+|------------|---------------------------------------|-----------------------------------|---------------------------------------------|
+| 一键安装   | `curl -fsSL .../install.sh \| bash`  | `siti upgrade`                    | `siti uninstall -y`                         |
+| Homebrew   | `brew tap SeSiTing/siti-cli && brew install siti-cli` | `brew upgrade siti-cli` 或 `siti upgrade` | `brew uninstall siti-cli` 并手动清理残留* |
+| 手动安装   | 克隆仓库后 `make install`             | `git pull && make install`        | `make uninstall`                            |
+
+*Homebrew 卸载后需手动清理残留（如 ~/.zshrc 中的 shell wrapper）：
+```bash
+# 1. 卸载 Homebrew 包
+brew uninstall siti-cli
+
+# 2. 清理 ~/.zshrc 中的 siti 相关配置（可选，保留用户数据）
+#   - 搜索并删除 "# siti shell wrapper" 段落
+#   - 搜索并删除 "# siti-cli PATH configuration" 段落
+#   - 搜索并删除 "export PATH=.../.local/bin" 行
+
+# 3. 保留用户数据在 ~/.siti-cli（如需彻底删除）
+rm -rf ~/.siti-cli
+```
 
 ## 快速开始
 

@@ -151,32 +151,62 @@ switch_provider() {
     # 兜底：使用 DEFAULT_AUTH_TOKEN
     auth_token_ref="\$DEFAULT_AUTH_TOKEN"
   fi
-  
+
+  # 处理 MODEL：检查是否有对应服务商的 MODEL 定义
+  local model_ref=""
+  local has_model_def=false
+
+  if grep -q "^export ${provider_upper}_MODEL=" "$ZSHRC" 2>/dev/null; then
+    has_model_def=true
+    model_ref="\$${provider_upper}_MODEL"
+  fi
+
   # 持久模式：修改 ~/.zshrc
   if [[ "$persist_flag" == "--persist" ]]; then
     # 备份 ~/.zshrc
     cp "$ZSHRC" "${ZSHRC}.backup.$(date +%Y%m%d_%H%M%S)"
-    
+
     # 使用 sed 替换 ANTHROPIC_BASE_URL
     sed -i.tmp -E "s|^export ANTHROPIC_BASE_URL=.*|export ANTHROPIC_BASE_URL=\"\$${provider_upper}_BASE_URL\"|" "$ZSHRC"
-    
+
     # 使用 sed 替换 ANTHROPIC_AUTH_TOKEN
     sed -i.tmp -E "s|^export ANTHROPIC_AUTH_TOKEN=.*|export ANTHROPIC_AUTH_TOKEN=\"${auth_token_ref}\"|" "$ZSHRC"
-    
+
+    # 处理 ANTHROPIC_MODEL：如果有对应 model 定义则设置，否则清除
+    if [ "$has_model_def" = true ]; then
+      # 如果已有 ANTHROPIC_MODEL 行则替换，否则追加
+      if grep -q "^export ANTHROPIC_MODEL=" "$ZSHRC" 2>/dev/null; then
+        sed -i.tmp -E "s|^export ANTHROPIC_MODEL=.*|export ANTHROPIC_MODEL=\"${model_ref}\"|" "$ZSHRC"
+      else
+        echo "export ANTHROPIC_MODEL=\"${model_ref}\"" >> "$ZSHRC"
+      fi
+    else
+      # 如果没有对应 model 定义，注释掉或删除已有的 ANTHROPIC_MODEL
+      sed -i.tmp -E "s|^export ANTHROPIC_MODEL=.*|# export ANTHROPIC_MODEL # 已清除|" "$ZSHRC"
+    fi
+
     # 删除临时文件
     rm -f "${ZSHRC}.tmp"
-    
+
     echo "echo '✅ 已持久化切换到 $provider [下次打开终端自动生效]';"
   fi
-  
+
   # 输出 export 命令（临时模式和持久模式都输出，供当前 shell 立即生效）
   echo "export ANTHROPIC_BASE_URL=\"\$${provider_upper}_BASE_URL\";"
   echo "export ANTHROPIC_AUTH_TOKEN=\"${auth_token_ref}\";"
-  
+
+  # 处理 ANTHROPIC_MODEL
+  if [ "$has_model_def" = true ]; then
+    echo "export ANTHROPIC_MODEL=\"${model_ref}\";"
+  else
+    # 如果没有对应 model 定义，但之前有设置 ANTHROPIC_MODEL 则清除
+    echo "if [ -n \"\$ANTHROPIC_MODEL\" ]; then unset ANTHROPIC_MODEL; fi;"
+  fi
+
   if [[ "$persist_flag" != "--persist" ]]; then
     echo "echo '✅ 已切换到 $provider [仅当前终端有效]';"
   fi
-  
+
   exit 10  # 退出码 10 表示需要 eval
 }
 
@@ -224,7 +254,7 @@ unset_env() {
   fi
 
   # 需要清除的变量列表
-  local vars=("ANTHROPIC_AUTH_TOKEN" "ANTHROPIC_API_KEY" "ANTHROPIC_BASE_URL")
+  local vars=("ANTHROPIC_AUTH_TOKEN" "ANTHROPIC_API_KEY" "ANTHROPIC_BASE_URL" "ANTHROPIC_MODEL")
 
   # 持久模式：修改 ~/.zshrc
   if [[ "$persist_flag" == "--persist" ]]; then

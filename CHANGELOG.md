@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-03-06
+
+### Added
+- `siti ai switch`: 新增对 `ANTHROPIC_MODEL` 的自动管理
+  - 切换时自动检测对应服务商的 `MODEL` 变量定义（如 `ALI_MODEL`, `ZHIPU_MODEL`）
+  - 如果存在对应 model 则自动设置 `export ANTHROPIC_MODEL`
+  - 如果不存在对应 model 则自动清除之前的 `ANTHROPIC_MODEL` 设置
+  - 支持临时切换和持久化切换（`--persist`）
+- `siti ai unset`: 清除环境变量时同时清除 `ANTHROPIC_MODEL`
+
+### Example (~/.zshrc)
+
+```bash
+# 阿里云（需要指定 model）
+export ALI_BASE_URL="https://coding.dashscope.aliyuncs.com/apps/anthropic"
+export ALI_API_KEY="your-api-key"
+export ALI_MODEL="qwen3.5-plus"
+
+# 智谱（无 model 时可省略）
+export ZHIPU_BASE_URL="https://open.bigmodel.cn/api/anthropic"
+export ZHIPU_API_KEY="your-api-key"
+
+# MiniMax（无 model 时可省略）
+export MINIMAX_BASE_URL="https://api.minimaxi.com/anthropic"
+export MINIMAX_API_KEY="your-api-key"
+```
+
+切换时会自动处理：
+- `siti ai switch ali` → 设置 `ANTHROPIC_MODEL=$ALI_MODEL`
+- `siti ai switch zhipu` → 清除 `ANTHROPIC_MODEL`
+
 ## [1.2.4] - 2026-03-01
 
 ### Added

@@ -42,14 +42,14 @@ jobs:
             echo "标签 v$VERSION 不存在，准备创建"
           fi
 
-      - name: Push temp tag for archive URL
+      - name: Push tag for archive
         if: steps.check_tag.outputs.exists == 'false'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          # 用临时名字打 tag，让 GitHub 生成 archive 用于计算 sha256
-          git tag "_tmp_v$VERSION"
-          git push origin "_tmp_v$VERSION"
+          # 在版本 bump 的 commit 上打正式 tag，保证 archive 与 Formula sha256 一致
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
 
       - name: Compute archive SHA256
         if: steps.check_tag.outputs.exists == 'false'
@@ -57,7 +57,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          URL="https://github.com/${{ github.repository }}/archive/_tmp_v${VERSION}.tar.gz"
+          URL="https://github.com/${{ github.repository }}/archive/v${VERSION}.tar.gz"
           for i in $(seq 1 10); do
             curl -sL "$URL" -o archive.tar.gz
             SIZE=$(stat -c%s archive.tar.gz 2>/dev/null || stat -f%z archive.tar.gz)
@@ -71,20 +71,18 @@ jobs:
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
           echo "📦 SHA256: $SHA256"
 
-      - name: Update Formula, commit, push tag
+      - name: Update Formula and push
         if: steps.check_tag.outputs.exists == 'false'
         env:
           VERSION: ${{ steps.version.outputs.version }}
           SHA256: ${{ steps.calc_sha.outputs.sha256 }}
         run: |
-          # 更新 Formula
           sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/archive/v${VERSION}.tar.gz\"|" Formula/siti-cli.rb
           sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/siti-cli.rb
 
           echo "✅ Formula 已更新:"
           grep -E "url|sha256" Formula/siti-cli.rb | head -2
 
-          # commit 更新后的 Formula 到 main
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add Formula/siti-cli.rb
@@ -92,14 +90,7 @@ jobs:
           git pull --rebase origin main
           git push origin HEAD:main
 
-          # 在包含正确 Formula 的 commit 上打正式 tag
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
-
-          # 清理临时 tag
-          git push origin --delete "_tmp_v$VERSION"
-
-          echo "✅ 标签 v$VERSION 创建成功（Formula sha256 已包含）"
+          echo "✅ v$VERSION 发布完成"
 
       - name: Create Release
         if: steps.check_tag.outputs.exists == 'false'

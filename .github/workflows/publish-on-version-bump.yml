@@ -77,11 +77,18 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           SHA256: ${{ steps.calc_sha.outputs.sha256 }}
         run: |
+          # 校验 Formula 格式
+          grep -q 'url "' Formula/siti-cli.rb || { echo "❌ Formula 缺少 url 行"; exit 1; }
+          grep -q 'sha256 "' Formula/siti-cli.rb || { echo "❌ Formula 缺少 sha256 行"; exit 1; }
+
           sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/archive/v${VERSION}.tar.gz\"|" Formula/siti-cli.rb
           sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/siti-cli.rb
 
-          echo "✅ Formula 已更新:"
-          grep -E "url|sha256" Formula/siti-cli.rb | head -2
+          grep -q "v${VERSION}.tar.gz" Formula/siti-cli.rb || { echo "❌ Formula url 更新失败"; exit 1; }
+          grep -q "${SHA256}" Formula/siti-cli.rb || { echo "❌ Formula sha256 更新失败"; exit 1; }
+
+          echo "✅ Formula 已更新"
+          grep -E "url|sha256" Formula/siti-cli.rb
 
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"

@@ -1,0 +1,39 @@
+name: Auto Tag
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(grep '^VERSION=' bin/siti | cut -d'"' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check and create tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "当前代码版本: v$VERSION"
+
+          # 检查远程是否已存在此标签
+          if git ls-remote --tags origin "v$VERSION" | grep -q "refs/tags/v$VERSION"; then
+            echo "GitHub 上已存在标签 v$VERSION，跳过"
+          else
+            echo "GitHub 上不存在 v$VERSION，正在创建..."
+            git tag "v$VERSION"
+            git push origin "v$VERSION"
+            echo "✅ 已创建并推送标签 v$VERSION"
+          fi

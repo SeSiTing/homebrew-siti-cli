@@ -289,6 +289,47 @@ WRAPPER
   echo "   请运行 'source $rc' 或重新打开终端后生效"
 }
 
+# 清理 zshrc 中的 siti 配置（卸载后使用）
+cleanup_shell_config() {
+  local cleaned=0
+  for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+    [ ! -f "$rc" ] && continue
+
+    # 删除 siti shell wrapper 块（从注释行到函数结束的 }）
+    if grep -q "siti shell wrapper" "$rc" 2>/dev/null; then
+      cp "$rc" "${rc}.backup.$(date +%Y%m%d_%H%M%S)"
+      sed -i.tmp '/# siti shell wrapper/,/^}$/d' "$rc"
+      rm -f "${rc}.tmp"
+      echo "✅ 已从 $rc 删除 shell wrapper"
+      cleaned=1
+    fi
+
+    # 删除补全配置块
+    if grep -q "siti-cli completion" "$rc" 2>/dev/null; then
+      sed -i.tmp '/# siti-cli completion/,/^fi$/d' "$rc"
+      rm -f "${rc}.tmp"
+      echo "✅ 已从 $rc 删除补全配置"
+      cleaned=1
+    fi
+
+    # 删除 PATH 配置行
+    if grep -q "siti-cli PATH" "$rc" 2>/dev/null; then
+      sed -i.tmp '/# siti-cli PATH/d;/\.local\/bin.*PATH/d' "$rc"
+      rm -f "${rc}.tmp"
+      echo "✅ 已从 $rc 删除 PATH 配置"
+      cleaned=1
+    fi
+  done
+
+  if [ "$cleaned" -eq 0 ]; then
+    echo "ℹ️  未找到需要清理的 siti-cli 配置"
+  else
+    echo ""
+    echo "✅ 清理完成，请重新打开终端或运行 source ~/.zshrc 生效"
+    echo "📁 用户数据保留在 ~/.siti-cli/，如需完全删除请运行: rm -rf ~/.siti-cli"
+  fi
+}
+
 # 主函数
 main() {
   # 检查命令目录是否存在
@@ -311,6 +352,9 @@ main() {
       ;;
     --version|-v)
       show_version
+      ;;
+    cleanup)
+      cleanup_shell_config
       ;;
     *)
       run_command "$@"

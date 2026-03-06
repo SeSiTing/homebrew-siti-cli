@@ -29,12 +29,16 @@ USER_COMMANDS_DIR="$HOME/.siti-cli/commands"
 EOF
 fi
 
-# 配置 shell 补全（尝试写入，失败则静默跳过）
-SHELL_RC="$HOME/.zshrc"
-[ "$(basename "$SHELL")" = "bash" ] && SHELL_RC="$HOME/.bashrc"
+# 配置 shell 补全与 wrapper：macOS 默认 zsh，优先 .zshrc；否则按 $SHELL
+# 若 .zshrc 存在则优先使用（多数 Mac 用户），避免 brew 从 bash 子进程运行导致写错文件
+if [ -f "$HOME/.zshrc" ] || [ ! -f "$HOME/.bashrc" ]; then
+  SHELL_RC="$HOME/.zshrc"
+else
+  SHELL_RC="$HOME/.bashrc"
+fi
 
 if ! grep -q "siti-cli completion" "$SHELL_RC" 2>/dev/null; then
-  if cat >> "$SHELL_RC" 2>/dev/null << 'EOF'
+  if touch "$SHELL_RC" 2>/dev/null && cat >> "$SHELL_RC" 2>/dev/null << 'EOF'
 
 # siti-cli completion
 if command -v siti >/dev/null 2>&1; then
@@ -48,7 +52,7 @@ EOF
   then
     echo "✅ Shell 补全配置已添加"
   else
-    echo "⚠️  无法写入 $SHELL_RC（可能是权限问题），请手动配置补全" >&2
+    echo "⚠️  无法写入 $SHELL_RC，请手动配置补全" >&2
   fi
 else
   echo "✅ Shell 补全配置已存在"
@@ -69,7 +73,7 @@ fi
 # 自动安装 shell wrapper（尝试写入，失败则静默跳过）
 WRAPPER_MARKER="# siti shell wrapper - auto-generated"
 if ! grep -q "$WRAPPER_MARKER" "$SHELL_RC" 2>/dev/null; then
-  if cat >> "$SHELL_RC" 2>/dev/null << 'WRAPPER_EOF'
+  if touch "$SHELL_RC" 2>/dev/null && cat >> "$SHELL_RC" 2>/dev/null << 'WRAPPER_EOF'
 
 # siti shell wrapper - auto-generated
 # 使需要修改环境变量的命令（如 proxy、ai）在当前终端立即生效
@@ -90,7 +94,7 @@ WRAPPER_EOF
   then
     echo "✅ Shell wrapper 已安装（siti ai、siti proxy 等命令将在当前终端生效）"
   else
-    echo "⚠️  无法写入 $SHELL_RC（可能是权限问题），请手动配置 wrapper" >&2
+    echo "⚠️  无法写入 $SHELL_RC，请手动运行: eval \"\$(siti init zsh)\" >> $SHELL_RC" >&2
   fi
 else
   echo "✅ Shell wrapper 已存在，跳过安装"

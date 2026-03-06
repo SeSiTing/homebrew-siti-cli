@@ -4,7 +4,7 @@
 # 作者: siti
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.2.21"
+VERSION="1.2.22"
 
 # 检测安装方式并设置命令目录
 detect_installation_type() {
@@ -272,7 +272,7 @@ siti() {
   out=$(command siti "$@" 2>"$err_file")
   exit_code=$?
   if [ $exit_code -eq 10 ]; then
-    eval "$out"
+    eval "$(echo "$out" | grep -E '^(export |unset |if )' || true)"
     [ -s "$err_file" ] && cat "$err_file"
   else
     [ -s "$err_file" ] && cat "$err_file" >&2

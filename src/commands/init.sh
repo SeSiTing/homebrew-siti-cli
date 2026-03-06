@@ -64,7 +64,7 @@ siti() {
   out=$(command siti "$@" 2>"$err_file")
   exit_code=$?
   if [ $exit_code -eq 10 ]; then
-    eval "$out"
+    eval "$(echo "$out" | grep -E '^(export |unset |if )' || true)"
     [ -s "$err_file" ] && cat "$err_file"
   else
     [ -s "$err_file" ] && cat "$err_file" >&2

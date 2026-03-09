@@ -210,7 +210,7 @@ switch_provider() {
     # 删除临时文件
     rm -f "${ZSHRC}.tmp"
 
-    echo "✅ 已持久化切换到 $provider（下次打开终端自动生效）" >&2
+    echo "✅ 已持久化切换到 $provider （下次打开终端自动生效）" >&2
   fi
 
   echo "export ANTHROPIC_BASE_URL=\"\$${provider_upper}_BASE_URL\";"
@@ -223,7 +223,7 @@ switch_provider() {
   fi
 
   if [[ "$persist_flag" != "--persist" ]]; then
-    echo "✅ 已切换到 $provider（仅当前终端有效）" >&2
+    echo "✅ 已切换到 $provider （仅当前终端有效）" >&2
   fi
 
   exit 10

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- style: 改进 ai 命令提示信息的格式（provider 后添加空格）
 - refactor: 优化脚本执行方式，改为 exec 保留命令实时输出
 - refactor: 优化 shell wrapper 和 ai 命令显示逻辑
 

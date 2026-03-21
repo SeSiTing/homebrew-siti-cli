@@ -43,6 +43,12 @@ export MINIMAX_API_KEY="your-api-key"
 - `siti ai switch ali` → 设置 `ANTHROPIC_MODEL=$ALI_MODEL`
 - `siti ai switch zhipu` → 清除 `ANTHROPIC_MODEL`
 
+## [1.2.26] - 2026-03-22
+
+### Fixed
+- `siti ai unset`: 修复 "local: can only be used in a function" 错误
+  - 移除 case 语句中的 local 关键字
+
 ## [1.2.25] - 2026-03-22
 
 ### Enhanced

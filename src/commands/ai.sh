@@ -321,7 +321,7 @@ case "$1" in
     ;;
   unset)
     # 支持 --persist 和 -p 两种形式
-    local persist_flag="$2"
+    persist_flag="$2"
     if [[ "$persist_flag" == "-p" ]]; then
       persist_flag="--persist"
     fi

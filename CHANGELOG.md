@@ -49,8 +49,21 @@ export MINIMAX_API_KEY="your-api-key"
 - `siti ai unset`: 新增清除环境变量命令，用于切换到 OAuth 登录模式
   - `siti ai unset`: 临时清除（仅当前终端生效）
   - `siti ai unset --persist` 或 `siti ai unset -p`: 持久化清除（修改 ~/.zshrc）
-  - 清除变量：ANTHROPIC_AUTH_TOKEN、ANTHROPIC_API_KEY、ANTHROPIC_BASE_URL
+  - 清除变量：ANTHROPIC_AUTH_TOKEN、ANTHROPIC_API_KEY、ANTHROPIC_BASE_URL、5个模型变量
   - 支持 shell wrapper 检测，未配置时会有提示
+
+### Enhanced
+- `siti ai switch`: 智能管理 ANTHROPIC 模型变量
+  - 如果服务商定义了 `<PROVIDER>_MODEL` 变量（如 `ALI_MODEL="qwen3.5-plus"`），则自动设置 5 个 ANTHROPIC 模型变量：
+    - `ANTHROPIC_MODEL`
+    - `ANTHROPIC_DEFAULT_SONNET_MODEL`
+    - `ANTHROPIC_DEFAULT_OPUS_MODEL`
+    - `ANTHROPIC_DEFAULT_HAIKU_MODEL`
+    - `ANTHROPIC_REASONING_MODEL`
+  - 如果服务商未定义模型变量，则清除（unset）这 5 个变量
+  - 支持临时切换和持久化切换（`--persist`）
+- `siti ai current`: 显示当前配置时包含 5 个模型变量的值
+- `siti ai unset`: 清除环境变量时包含 5 个模型变量
 
 ## [1.2.3] - 2026-02-02
 

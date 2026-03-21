@@ -1,8 +1,8 @@
 class SitiCli < Formula
   desc "个人命令行工具集"
   homepage "https://github.com/SeSiTing/homebrew-siti-cli"
-  url "https://github.com/SeSiTing/homebrew-siti-cli/archive/v1.2.23.tar.gz"
-  sha256 "c9356892f5b413c93e418e96d10392cbf9bbd9c1b5ba64cf170bb92659a85ed1"
+  url "https://github.com/SeSiTing/homebrew-siti-cli/archive/v1.2.24.tar.gz"
+  sha256 "e05b0efa7b5d5a77d7931a3db9dc2d4b09c41022e80f723c516b428c4a41ef4b"
   license "MIT"
 
   def install
@@ -21,14 +21,22 @@ class SitiCli < Formula
 
   def caveats
     <<~EOS
-      首次运行任意 siti 命令时会自动配置 shell wrapper。
-      配置后重新打开终端或运行 source ~/.zshrc 即可生效。
+      ⚠️  重要：siti-cli 的部分命令需要配置 shell wrapper 才能在当前终端生效
 
-      卸载后如需清理 ~/.zshrc 中的 siti 配置，请运行：
-        siti cleanup
+      如果自动配置失败（权限问题），请手动运行：
+        eval "$(siti init zsh)" >> ~/.zshrc
+        source ~/.zshrc
+
+      配置后，以下命令将在当前终端立即生效：
+        • siti ai switch <provider>  - 切换 AI API 配置
+        • siti proxy on/off          - 代理管理
 
       运行 'siti --help' 查看所有命令
     EOS
+  end
+
+  def post_uninstall
+    system "#{share}/siti-cli/scripts/post-uninstall.sh"
   end
 
   test do

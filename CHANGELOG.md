@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `siti ai`: 支持从 `~/.zshenv` 和 `~/.zshrc` 双文件读取服务商配置
+  - 新增 `_cat_configs()` 合并读取两个配置文件（zshenv 优先）
+  - 新增 `_find_config_file()` 智能定位变量所在的配置文件
+  - 持久化切换（`--persist`）时自动修改变量所在的配置文件
+  - `unset --persist` 时逐变量定位并注释，避免误改无关文件
+
 ### Changed
 - style: 改进 ai 命令提示信息的格式（provider 后添加空格）
 - refactor: 优化脚本执行方式，改为 exec 保留命令实时输出

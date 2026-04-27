@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-04-28 — v2.0.6 · wrapper 不再捕获 stdout
+
+- 重写 shell wrapper：stdout 重定向到临时文件而非 `$()` 捕获，子进程直接继承 TTY，修复 `siti brew up` 无进度条的问题
+- Formula 迁移到 `SeSiTing/homebrew-tap` 统一 tap 仓库，安装命令简化为 `brew install SeSiTing/tap/siti-cli`
+
 ## 2026-04-27 — v2.0.4 · brew up 输出修复
 
 - 修复 `siti brew up` 子命令无实时输出的问题：`runCmdIn` 补上 `c.Stdin = os.Stdin`，使 brew 子进程正确检测 TTY，恢复进度条和实时日志

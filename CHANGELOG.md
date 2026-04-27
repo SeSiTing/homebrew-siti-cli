@@ -5,6 +5,10 @@
 
 ---
 
+## 2026-04-27 — v2.0.4 · brew up 输出修复
+
+- 修复 `siti brew up` 子命令无实时输出的问题：`runCmdIn` 补上 `c.Stdin = os.Stdin`，使 brew 子进程正确检测 TTY，恢复进度条和实时日志
+
 ## 2026-04-27 — v2.0.3 · 输出风格主流化（去 emoji）
 
 对齐 gh / cargo / kubectl / pnpm / bun 的纯文本+符号风格：

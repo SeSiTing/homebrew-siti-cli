@@ -81,9 +81,10 @@ func runCmd(name string, args ...string) error {
 // Uses exec.Command.Dir to avoid mutating the process-wide working directory.
 func runCmdIn(dir, name string, args ...string) error {
 	c := exec.Command(name, args...)
-	c.Dir = dir
+	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
+	c.Dir = dir
 	return c.Run()
 }
 

@@ -16,7 +16,7 @@ var upgradeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		installMethod := os.Getenv("INSTALL_METHOD") // set by wrapper if needed
 
-		fmt.Printf("\n🚀 siti-cli 升级工具\n")
+		fmt.Printf("\nsiti-cli 升级工具\n")
 		fmt.Printf("   当前版本: v%s\n\n", cmd.Root().Version)
 
 		if installMethod == "" {
@@ -35,7 +35,7 @@ var upgradeCmd = &cobra.Command{
 		case "standalone":
 			return upgradeViaGit()
 		default:
-			fmt.Printf("⚠️  安装方式: %s\n", installMethod)
+			fmt.Printf("! 安装方式: %s\n", installMethod)
 			fmt.Println("请手动更新:")
 			fmt.Println("  Homebrew: brew upgrade siti-cli")
 			fmt.Println("  独立安装: cd ~/.siti-cli && git pull")
@@ -45,16 +45,16 @@ var upgradeCmd = &cobra.Command{
 }
 
 func upgradeViaBrew() error {
-	fmt.Println("📦 通过 Homebrew 更新...")
+	fmt.Println("→ 通过 Homebrew 更新...")
 
 	start := time.Now()
 	if err := runCmd("brew", "update"); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  brew update 失败: %v\n", err)
+		fmt.Fprintf(os.Stderr, "! brew update 失败: %v\n", err)
 	}
 	if err := runCmd("brew", "upgrade", "siti-cli"); err != nil {
 		return fmt.Errorf("升级失败: %w", err)
 	}
-	fmt.Printf("\n✅ 升级完成！耗时 %s\n", time.Since(start).Round(time.Second))
+	fmt.Printf("\n✓ 升级完成 (took %s)\n", time.Since(start).Round(time.Second))
 	return nil
 }
 
@@ -64,11 +64,11 @@ func upgradeViaGit() error {
 		return fmt.Errorf("未找到安装目录: %s", installDir)
 	}
 
-	fmt.Println("🔄 通过 Git 更新...")
+	fmt.Println("→ 通过 Git 更新...")
 	if err := runCmdIn(installDir, "git", "pull", "--rebase", "--autostash", "origin", "main"); err != nil {
 		return fmt.Errorf("git pull 失败: %w", err)
 	}
-	fmt.Println("\n✅ 更新完成！")
+	fmt.Println("\n✓ 更新完成")
 	return nil
 }
 

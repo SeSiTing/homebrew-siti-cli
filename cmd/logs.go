@@ -39,7 +39,7 @@ var logsCleanCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("🧹 已清理 %d 个日志文件 (*.log)\n", deleted)
+		fmt.Printf("✓ 已清理 %d 个日志文件 (*.log)\n", deleted)
 		return nil
 	},
 }

@@ -24,7 +24,7 @@ var proxyOnCmd = &cobra.Command{
 	RunE: func(c *cobra.Command, args []string) error {
 		httpProxy := fmt.Sprintf("http://%s:%s", proxyHost, proxyPort)
 		socksProxy := fmt.Sprintf("socks5://%s:%s", proxyHost, proxyPort)
-		printErr("✅ 终端代理已开启 (%s:%s)", proxyHost, proxyPort)
+		printErr("✓ 终端代理已开启 (%s:%s)", proxyHost, proxyPort)
 		Eval(c,
 			shell.Export("http_proxy", httpProxy),
 			shell.Export("HTTP_PROXY", httpProxy),
@@ -42,7 +42,7 @@ var proxyOffCmd = &cobra.Command{
 	Short: "关闭终端代理",
 	Args:  cobra.NoArgs,
 	RunE: func(c *cobra.Command, args []string) error {
-		printErr("🚫 终端代理已关闭")
+		printErr("✗ 终端代理已关闭")
 		Eval(c,
 			shell.Unset("http_proxy", "HTTP_PROXY"),
 			shell.Unset("https_proxy", "HTTPS_PROXY"),
@@ -72,12 +72,12 @@ var proxyStatusCmd = &cobra.Command{
 
 		fmt.Println("当前代理状态:")
 		if httpVal != "" {
-			fmt.Println("  ✅ 代理已开启")
+			fmt.Println("  ✓ 代理已开启")
 			fmt.Println("  http_proxy: ", httpVal)
 			fmt.Println("  https_proxy:", httpsVal)
 			fmt.Println("  all_proxy:  ", allVal)
 		} else {
-			fmt.Println("  ❌ 代理未开启")
+			fmt.Println("  ✗ 代理未开启")
 		}
 
 		if v := firstNonEmpty(lookupEnv("no_proxy"), lookupEnv("NO_PROXY")); v != "" {

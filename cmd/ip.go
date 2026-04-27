@@ -16,21 +16,16 @@ var ipCmd = &cobra.Command{
 	Short: "显示内网和公网 IP 地址",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("🌐 内网 IP:")
-		out, err := exec.Command("ipconfig", "getifaddr", "en0").Output()
-		if err == nil {
-			fmt.Println(" ", strings.TrimSpace(string(out)))
-		} else {
-			fmt.Println("  (未获取到内网 IP)")
+		lan := "(未获取到)"
+		if out, err := exec.Command("ipconfig", "getifaddr", "en0").Output(); err == nil {
+			lan = strings.TrimSpace(string(out))
 		}
-
-		fmt.Println("🌎 公网 IP:")
-		fmt.Println(" ", lookupPublicIP())
+		fmt.Printf("LAN: %s\n", lan)
+		fmt.Printf("WAN: %s\n", lookupPublicIP())
 	},
 }
 
 // lookupPublicIP tries multiple endpoints; returns the first plain-text IP it gets.
-// Reading the full body (not just 64 bytes) avoids truncating HTML error pages.
 func lookupPublicIP() string {
 	endpoints := []string{
 		"https://api.ipify.org",

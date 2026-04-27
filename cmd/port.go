@@ -62,9 +62,9 @@ var portKillCmd = &cobra.Command{
 		}
 
 		if kpCheckOnly {
-			fmt.Println("🔍 扫描端口占用（检查模式）...")
+			fmt.Println("→ 扫描端口占用（检查模式）...")
 		} else {
-			fmt.Println("🔍 扫描端口占用...")
+			fmt.Println("→ 扫描端口占用...")
 		}
 
 		type entry struct {
@@ -90,21 +90,20 @@ var portKillCmd = &cobra.Command{
 		}
 
 		if len(occupied) == 0 {
-			fmt.Printf("\n✅ 扫描了 %d 个端口，没有发现占用\n", len(ports))
+			fmt.Printf("\n✓ 扫描了 %d 个端口，没有发现占用\n", len(ports))
 			return nil
 		}
 
-		fmt.Printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-		fmt.Printf("⚠️  发现 %d 个端口被占用:\n\n", len(occupied))
+		fmt.Printf("\n────────────────────────────────────────\n")
+		fmt.Printf("! 发现 %d 个端口被占用:\n\n", len(occupied))
 		for _, e := range occupied {
-			fmt.Printf("  端口 %d - %s\n", e.port, e.label)
-			fmt.Printf("    PIDs: [%s]\n", strings.Join(e.pids, " "))
-			fmt.Printf("    命令: %s\n\n", truncate(e.cmdLine, 50))
+			fmt.Printf("  %d  %s  PID %s\n", e.port, e.label, strings.Join(e.pids, ","))
+			fmt.Printf("       %s\n\n", truncate(e.cmdLine, 60))
 		}
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("────────────────────────────────────────")
 
 		if kpCheckOnly {
-			fmt.Printf("📝 检查模式: 扫描了 %d 个端口，未终止任何进程\n", len(ports))
+			fmt.Printf("• 检查模式: 扫描了 %d 个端口，未终止任何进程\n", len(ports))
 			return nil
 		}
 
@@ -114,34 +113,34 @@ var portKillCmd = &cobra.Command{
 		if kpAll {
 			// Per-port confirmation
 			for _, e := range occupied {
-				fmt.Printf("端口 %d - %s\n  命令: %s\n", e.port, e.label, truncate(e.cmdLine, 50))
-				fmt.Print("  是否清理? [y/N] ")
+				fmt.Printf("%d  %s  %s\n", e.port, e.label, truncate(e.cmdLine, 50))
+				fmt.Print("  ? 是否清理? [y/N] ")
 				line, _ := reader.ReadString('\n')
 				if strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "y") {
 					killed += killPIDs(e.pids)
-					fmt.Println("  ✅ 已清理")
+					fmt.Println("  ✓ 已清理")
 				} else {
-					fmt.Println("  ⏭️  跳过")
+					fmt.Println("  ↷ skip")
 				}
 				fmt.Println()
 			}
 		} else {
 			// Batch confirmation
-			fmt.Print("⚠️  是否清理以上所有端口? [y/N] ")
+			fmt.Print("? 是否清理以上所有端口? [y/N] ")
 			line, _ := reader.ReadString('\n')
 			if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "y") {
-				fmt.Println("❌ 已取消")
+				fmt.Println("✗ 已取消")
 				return nil
 			}
 			fmt.Println()
 			for _, e := range occupied {
 				killed += killPIDs(e.pids)
-				fmt.Printf("  ✅ 端口 %d 已清理\n", e.port)
+				fmt.Printf("  ✓ 端口 %d 已清理\n", e.port)
 			}
 		}
 
-		fmt.Printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-		fmt.Printf("✅ 完成: 扫描了 %d 个端口，终止了 %d 个进程\n", len(ports), killed)
+		fmt.Printf("\n────────────────────────────────────────\n")
+		fmt.Printf("✓ 完成: 扫描了 %d 个端口，终止了 %d 个进程\n", len(ports), killed)
 		return nil
 	},
 }
@@ -161,16 +160,16 @@ func init() {
 func resolvePorts(args []string) ([]int, error) {
 	switch {
 	case kpDev:
-		fmt.Println("📦 使用开发端口预设")
+		fmt.Println("→ 使用开发端口预设")
 		return devPorts, nil
 	case kpDB:
-		fmt.Println("💾 使用数据库端口预设")
+		fmt.Println("→ 使用数据库端口预设")
 		return dbPorts, nil
 	case kpWeb:
-		fmt.Println("🌐 使用 Web 端口预设")
+		fmt.Println("→ 使用 Web 端口预设")
 		return webPorts, nil
 	case kpJava:
-		fmt.Println("☕ 使用 Java 端口预设 (8080-8090)")
+		fmt.Println("→ 使用 Java 端口预设 (8080-8090)")
 		return javaPorts, nil
 	case kpAll:
 		return allListeningPorts(), nil
@@ -270,21 +269,21 @@ func processLabel(cmdLine string) string {
 	lower := strings.ToLower(cmdLine)
 	switch {
 	case strings.Contains(lower, "java"):
-		return "☕ Java"
+		return "[java]"
 	case strings.Contains(lower, "python"):
-		return "🐍 Python"
+		return "[py]"
 	case strings.Contains(lower, "node"):
-		return "🟢 Node.js"
+		return "[node]"
 	case strings.Contains(lower, "docker"):
-		return "🐳 Docker"
+		return "[docker]"
 	case strings.Contains(lower, "postgres"):
-		return "🐘 PostgreSQL"
+		return "[pg]"
 	case strings.Contains(lower, "mysql"):
-		return "🐬 MySQL"
+		return "[mysql]"
 	case strings.Contains(lower, "redis"):
-		return "🔴 Redis"
+		return "[redis]"
 	default:
-		return "🧩 Other"
+		return "[other]"
 	}
 }
 

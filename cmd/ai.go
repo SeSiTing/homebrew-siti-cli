@@ -88,7 +88,7 @@ var aiSwitchCmd = &cobra.Command{
 			return fmt.Errorf("服务商 '%s' 不存在，运行 'siti ai list' 查看可用服务商", args[0])
 		}
 
-		printErr("✅ 已切换到 %s", p.DisplayName())
+		printErr("✓ 已切换到 %s", p.DisplayName())
 		applySwitch(c, p)
 		return nil
 	},
@@ -190,8 +190,8 @@ var aiCurrentCmd = &cobra.Command{
 		fmt.Println("当前 AI API 配置:")
 
 		if baseURL == "" {
-			fmt.Println("  ❌ 未配置（ANTHROPIC_BASE_URL 未设置）")
-			fmt.Println("  提示: 运行 'siti ai switch' 选择服务商，或 'source ~/.zshrc' 重新加载")
+			fmt.Println("  ✗ 未配置（ANTHROPIC_BASE_URL 未设置）")
+			fmt.Println("  → 运行 'siti ai switch' 选择服务商，或 'source ~/.zshrc' 重新加载")
 			return nil
 		}
 
@@ -228,7 +228,7 @@ var aiTestCmd = &cobra.Command{
 		baseURL := os.Getenv("ANTHROPIC_BASE_URL")
 		authToken := os.Getenv("ANTHROPIC_AUTH_TOKEN")
 
-		fmt.Println("🔍 测试 AI API 配置...")
+		fmt.Println("→ 测试 AI API 配置...")
 
 		if baseURL == "" {
 			return fmt.Errorf("ANTHROPIC_BASE_URL 未设置\n请运行 'siti ai switch' 选择服务商")
@@ -238,16 +238,16 @@ var aiTestCmd = &cobra.Command{
 		}
 
 		tokenPreview := authToken[:min(20, len(authToken))]
-		fmt.Println("  ✅ BASE_URL:   ", baseURL)
-		fmt.Printf("  ✅ AUTH_TOKEN:  %s...\n", tokenPreview)
+		fmt.Println("  ✓ BASE_URL:   ", baseURL)
+		fmt.Printf("  ✓ AUTH_TOKEN:  %s...\n", tokenPreview)
 
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Head(baseURL)
 		if err != nil {
-			fmt.Println("  ⚠️  连接测试失败:", err)
+			fmt.Println("  ! 连接测试失败:", err)
 		} else {
 			resp.Body.Close()
-			fmt.Printf("  ✅ 连接正常 (HTTP %d)\n", resp.StatusCode)
+			fmt.Printf("  ✓ 连接正常 (HTTP %d)\n", resp.StatusCode)
 		}
 		return nil
 	},
@@ -260,8 +260,8 @@ var aiClearCmd = &cobra.Command{
 	Short: "清除 ANTHROPIC_* 环境变量（切换到 OAuth 登录模式）",
 	Args:  cobra.NoArgs,
 	RunE: func(c *cobra.Command, args []string) error {
-		printErr("✅ 已清除 ANTHROPIC 环境变量")
-		printErr("👉 提示: 运行 \"claude login\" 切换到 OAuth 登录模式")
+		printErr("✓ 已清除 ANTHROPIC 环境变量")
+		printErr("→ 运行 \"claude login\" 切换到 OAuth 登录模式")
 
 		keys := append(
 			[]string{"ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"},

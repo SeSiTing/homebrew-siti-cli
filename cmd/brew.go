@@ -22,9 +22,9 @@ var brewUpCmd = &cobra.Command{
 	Short: "Homebrew 一键升级全流程（update/upgrade/cleanup）",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println("🍺 Homebrew 一键升级全流程")
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("────────────────────────────────────────")
+		fmt.Println("Homebrew 一键升级全流程")
+		fmt.Println("────────────────────────────────────────")
 
 		start := time.Now()
 		reader := bufio.NewReader(os.Stdin)
@@ -48,14 +48,14 @@ var brewUpCmd = &cobra.Command{
 		var errs []string
 
 		for i, s := range steps {
-			fmt.Printf("\n🔄 [%d/%d] %s\n", i+1, total, s.name)
+			fmt.Printf("\n→ [%d/%d] %s\n", i+1, total, s.name)
 
 			if brewupInteractive {
-				fmt.Print("❓ 执行此步骤? [Y/n] ")
+				fmt.Print("? 执行此步骤? [Y/n] ")
 				line, _ := reader.ReadString('\n')
 				line = strings.TrimSpace(strings.ToLower(line))
 				if line == "n" || line == "no" {
-					fmt.Printf("⏭️  跳过: %s\n", s.name)
+					fmt.Printf("↷ skip: %s\n", s.name)
 					continue
 				}
 			}
@@ -63,25 +63,25 @@ var brewUpCmd = &cobra.Command{
 			if err := s.fn(); err != nil {
 				msg := fmt.Sprintf("步骤 %d 失败: %v", i+1, err)
 				errs = append(errs, msg)
-				fmt.Fprintf(os.Stderr, "❌ %s\n", msg)
+				fmt.Fprintf(os.Stderr, "✗ %s\n", msg)
 			} else {
-				fmt.Printf("✅ [%d/%d] 完成\n", i+1, total)
+				fmt.Printf("✓ [%d/%d] 完成\n", i+1, total)
 			}
 		}
 
 		elapsed := time.Since(start).Round(time.Second)
-		fmt.Printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-		fmt.Printf("⏱️  总耗时: %s\n", elapsed)
+		fmt.Printf("\n────────────────────────────────────────\n")
+		fmt.Printf("took %s\n", elapsed)
 
 		if len(errs) > 0 {
-			fmt.Printf("\n⚠️  执行过程中遇到 %d 个错误:\n", len(errs))
+			fmt.Printf("\n! 执行过程中遇到 %d 个错误:\n", len(errs))
 			for _, e := range errs {
 				fmt.Println("  •", e)
 			}
 			return fmt.Errorf("升级流程完成，但存在错误")
 		}
 
-		fmt.Println("\n✅ 所有步骤执行成功！")
+		fmt.Println("\n✓ 所有步骤执行成功")
 		return nil
 	},
 }

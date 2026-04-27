@@ -57,7 +57,7 @@ go run . ai list   # 直接跑某个命令
 GitHub Actions 自动：
 - 从 `version.go` 提取版本 → 创建 `vX.Y.Z` tag → push
 - goreleaser 用该 tag 交叉编译（darwin/linux × amd64/arm64）
-- 上传 GitHub Release + checksums + 自动更新 `Formula/siti-cli.rb`
+- 上传 GitHub Release + checksums + 自动更新 `SeSiTing/homebrew-tap` 仓库的 `Formula/siti-cli.rb`
 
 补救：tag 已存在但 release 漏发 → Actions → "Release from Tag" → 手动跑。
 

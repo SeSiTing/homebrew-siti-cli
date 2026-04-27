@@ -64,7 +64,7 @@
 - 整个项目从 bash 脚本集合迁移到 Go 单二进制
 - 删除 `--persist` 选项：`siti ai switch` 仅修改当前 shell；要永久切换默认值，请手动编辑 `~/.zshrc`
 - 删除独立安装脚本 `install.sh` 和 `~/.siti-cli/commands/` 自定义命令机制
-- 唯一安装方式：`brew install SeSiTing/siti-cli/siti-cli`
+- 唯一安装方式：`brew install SeSiTing/tap/siti-cli`
 
 **Added**
 

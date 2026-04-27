@@ -53,7 +53,7 @@ brews:
     # HOMEBREW_TAP_TOKEN needs write access to that repo.
     repository:
       owner: SeSiTing
-      name: homebrew-siti-cli
+      name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula

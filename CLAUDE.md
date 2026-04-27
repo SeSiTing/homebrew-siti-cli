@@ -36,9 +36,23 @@ go run . ai list   # 直接跑某个命令
 
 ## 版本发布流程
 
-1. 修改 `version.go` 中的 `var version = "X.Y.Z"`（去掉 "dev"，填实际版本号）
+1. 修改 `version.go` 中的 `var version = "X.Y.Z"`
 2. 更新 `CHANGELOG.md`，加一段 ISO 日期 + 版本号
 3. push 到 `main` 分支
+
+### 版本号升级规则（AI 助手必须遵守）
+
+完成任意代码变更后，**默认自动升级 patch 位（z）**，无需用户提醒：
+
+- `2.0.1` → `2.0.2`：bug 修复、文档、重构、测试 — AI 直接改，无需确认
+- `2.0.x` → `2.1.0`：新功能 — **必须用户明确说"升 minor"才能改**
+- `2.x.x` → `3.0.0`：breaking change — **必须用户明确说"升 major"才能改**
+
+**门禁**：`publish-on-version-bump.yml` 会对比上一个 git tag 与新版本：
+- 仅 patch 升级：直接放行
+- minor 升级：要求 commit message 含 `[minor-bump]`
+- major 升级：要求 commit message 含 `[major-bump]`
+- 不满足则发版任务失败，强制人工确认
 
 GitHub Actions 自动：
 - 从 `version.go` 提取版本 → 创建 `vX.Y.Z` tag → push

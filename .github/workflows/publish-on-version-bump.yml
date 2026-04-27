@@ -34,7 +34,8 @@ jobs:
       - name: Extract version from version.go
         id: version
         run: |
-          VERSION=$(grep -oP '(?<=var version = ")[0-9]+\.[0-9]+\.[0-9]+' version.go || true)
+          # Match only real var declaration (skip example lines in comments).
+          VERSION=$(grep -E '^var version = "[0-9]+\.[0-9]+\.[0-9]+"' version.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
           if [ -z "$VERSION" ]; then
             echo "version.go has 'dev' or non-semver — nothing to release."
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -42,6 +43,39 @@ jobs:
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
             echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "Detected version: v$VERSION"
+          fi
+
+      - name: Validate semver bump (patch auto / minor+major need confirmation)
+        if: steps.version.outputs.skip == 'false'
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.version }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -e
+          LAST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          if [ -z "$LAST_TAG" ]; then
+            echo "No prior tag — first release, allowing $NEW_VERSION."
+            exit 0
+          fi
+          OLD="${LAST_TAG#v}"
+          IFS='.' read -r OX OY OZ <<< "$OLD"
+          IFS='.' read -r NX NY NZ <<< "$NEW_VERSION"
+          if [ "$NX" = "$OX" ] && [ "$NY" = "$OY" ]; then
+            echo "Patch bump $OLD → $NEW_VERSION ✓"
+          elif [ "$NX" = "$OX" ]; then
+            if echo "$COMMIT_MSG" | grep -q '\[minor-bump\]'; then
+              echo "Minor bump $OLD → $NEW_VERSION ✓ (confirmed by [minor-bump])"
+            else
+              echo "::error::Minor bump $OLD → $NEW_VERSION requires [minor-bump] in commit message."
+              exit 1
+            fi
+          else
+            if echo "$COMMIT_MSG" | grep -q '\[major-bump\]'; then
+              echo "Major bump $OLD → $NEW_VERSION ✓ (confirmed by [major-bump])"
+            else
+              echo "::error::Major bump $OLD → $NEW_VERSION requires [major-bump] in commit message."
+              exit 1
+            fi
           fi
 
       - name: Check if tag already exists

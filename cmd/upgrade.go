@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"time"
@@ -77,14 +79,27 @@ func runCmd(name string, args ...string) error {
 	return runCmdIn("", name, args...)
 }
 
+// runCmdTee is like runCmd but also tees stdout into buf for post-run parsing.
+func runCmdTee(buf *bytes.Buffer, name string, args ...string) error {
+	return runCmdInTee("", buf, name, args...)
+}
+
 // runCmdIn runs a command in the specified directory (empty = inherit cwd).
 // Uses exec.Command.Dir to avoid mutating the process-wide working directory.
 func runCmdIn(dir, name string, args ...string) error {
+	return runCmdInTee(dir, nil, name, args...)
+}
+
+func runCmdInTee(dir string, buf *bytes.Buffer, name string, args ...string) error {
 	c := exec.Command(name, args...)
 	c.Stdin = os.Stdin
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
 	c.Dir = dir
+	if buf != nil {
+		c.Stdout = io.MultiWriter(os.Stdout, buf)
+	} else {
+		c.Stdout = os.Stdout
+	}
+	c.Stderr = os.Stderr
 	return c.Run()
 }
 

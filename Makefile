@@ -4,7 +4,7 @@
 
 BINARY      := siti
 PKG         := github.com/SeSiTing/siti-cli
-VERSION     := $(shell grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' version.go | tr -d '"' || echo dev)
+VERSION     := $(shell grep -oE '^var version = "[0-9]+\.[0-9]+\.[0-9]+"' version.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
 LDFLAGS     := -s -w -X main.version=$(VERSION)
 GO          ?= go
 

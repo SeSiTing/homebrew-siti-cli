@@ -6,6 +6,7 @@
 #   - The Go binary writes shell statements to $SITI_EVAL_FILE (a temp file)
 #     and exits with code 10.
 #   - Non-exit-10 commands pass through directly (child processes inherit TTY).
+export SITI_WRAPPER=1
 siti() {
   local eval_file exit_code
   eval_file=$(mktemp)

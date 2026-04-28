@@ -5,6 +5,20 @@
 
 ---
 
+## 2026-04-28 — v2.0.9 · `siti brew up` 预览与汇总
+
+- `siti brew up` 升级前自动扫描并展示待更新的 formula / cask 清单，消除盲盒感
+- 新增 `-n` / `--dry-run` 标志：仅预览不执行
+- 末尾汇总显示更新数量、清理空间、总耗时
+- 全部最新时自动跳过 upgrade/autoremove 步骤，节省时间
+- `Makefile` 修复版本号 grep 误匹配注释
+
+## 2026-04-28 — v2.0.8 · shell wrapper 集成优化
+
+- `siti ai switch` / `siti proxy on` 等需要 eval 的命令在未加载 shell wrapper 时，stderr 给出清晰提示 + 一键可复制的修复命令，避免 export 语句打印到终端但不生效的静默失败
+- `siti init zsh --auto` 自动检测配置文件（`.zshenv` / `.zshrc`），幂等追加 wrapper，无需手动编辑
+- wrapper 模板新增 `SITI_WRAPPER=1` / `set -gx SITI_WRAPPER 1` 环境变量标记，供 Go 端检测 shell 集成状态
+
 ## 2026-04-28 — v2.0.7 · shell wrapper 直通 TTY
 
 - 重写 shell wrapper：子进程直接继承终端（不再重定向 stdout），修复 `siti brew up` 无进度条的问题

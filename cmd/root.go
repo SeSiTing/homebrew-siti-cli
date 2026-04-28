@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -51,9 +52,6 @@ func Execute(ver string) int {
 	}
 
 	if len(buf.lines) > 0 {
-		// When SITI_EVAL_FILE is set (by the shell wrapper), write shell
-		// statements there so child processes can inherit the real TTY on stdout.
-		// When not set (no wrapper / direct invocation), fall back to stdout.
 		if evalFile := os.Getenv("SITI_EVAL_FILE"); evalFile != "" {
 			data := []byte{}
 			for _, line := range buf.lines {
@@ -64,14 +62,80 @@ func Execute(ver string) int {
 				fmt.Fprintf(os.Stderr, "✗ write eval file: %v\n", err)
 				return 1
 			}
-		} else {
-			for _, line := range buf.lines {
-				fmt.Println(line)
-			}
+			return 10
 		}
-		return 10
+
+		// No wrapper loaded — show actionable hint.
+		printWrapperHint()
+		return 0
 	}
 	return 0
+}
+
+// printWrapperHint shows an actionable message when the shell wrapper
+// is not loaded (e.g. siti ai switch / proxy on was called directly).
+func printWrapperHint() {
+	shellType := detectShell()
+	rc := shellRCPath(shellType)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "! shell wrapper 未加载，环境变量不会生效")
+	fmt.Fprintln(os.Stderr)
+	if shellType == "fish" {
+		fmt.Fprintln(os.Stderr, "  当前会话生效:")
+		fmt.Fprintln(os.Stderr, "    eval (siti init fish | psub)")
+	} else {
+		fmt.Fprintln(os.Stderr, "  当前会话生效:")
+		fmt.Fprintf(os.Stderr, "    eval \"$(siti init %s)\"\n", shellType)
+	}
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "  永久生效:")
+	if rc != "" {
+		fmt.Fprintf(os.Stderr, "    echo 'eval \"$(siti init %s)\"' >> %s\n", shellType, rc)
+		fmt.Fprintf(os.Stderr, "    source %s\n", rc)
+	} else {
+		fmt.Fprintf(os.Stderr, "    将 eval \"$(siti init %s)\" 添加到 shell 配置文件\n", shellType)
+	}
+	fmt.Fprintln(os.Stderr)
+}
+
+// detectShell returns the current shell type (zsh, bash, or fish).
+func detectShell() string {
+	sh := os.Getenv("SHELL")
+	base := filepath.Base(sh)
+	switch base {
+	case "fish":
+		return "fish"
+	case "bash":
+		return "bash"
+	default:
+		return "zsh"
+	}
+}
+
+// shellRCPath returns the typical config file path for the given shell.
+func shellRCPath(shellType string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	switch shellType {
+	case "fish":
+		return filepath.Join(home, ".config", "fish", "config.fish")
+	case "bash":
+		// prefer .bashrc over .bash_profile
+		if p := filepath.Join(home, ".bashrc"); fileExists(p) {
+			return p
+		}
+		return filepath.Join(home, ".bash_profile")
+	default:
+		return filepath.Join(home, ".zshrc")
+	}
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func init() {

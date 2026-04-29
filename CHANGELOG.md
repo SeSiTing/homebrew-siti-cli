@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-04-29 — v2.0.15
+
+- `siti upgrade` self 永远优先：默认先升 self → brew/npm/gem，self 更新后终止并提示 re-run
+- brew section 跳过 siti-cli（避免 self 和 brew 重复），`--self` 独立控制自升级
+- `sectionSelf` 改为返回 bool 表示是否有更新，dry-run 与真实执行显示一致过滤
+
 ## 2026-04-29 — v2.0.14
 
 - `siti upgrade` 修复 brew/self 实时日志：裸 `exec.Command().Run()` 吞掉 TTY 输出导致用户看到"卡住"假象，统一改为 `runCmd()` 继承 stdout/stderr

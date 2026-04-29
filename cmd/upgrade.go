@@ -10,12 +10,12 @@ import (
 )
 
 var (
-	upgradeSelf     bool
-	upgradeBrew     bool
-	upgradeNpm      bool
-	upgradeGem      bool
-	upgradeAll      bool
-	upgradeDryRun   bool
+	upgradeSelf   bool
+	upgradeBrew   bool
+	upgradeNpm    bool
+	upgradeGem    bool
+	upgradeAll    bool
+	upgradeDryRun bool
 )
 
 var upgradeCmd = &cobra.Command{
@@ -25,7 +25,8 @@ var upgradeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		hasTarget := upgradeSelf || upgradeBrew || upgradeNpm || upgradeGem || upgradeAll
 
-		runSelf := upgradeSelf || upgradeAll
+		// Default (no flags): self first, then brew + npm + gem.
+		runSelf := upgradeSelf || upgradeAll || !hasTarget
 		runBrew := upgradeBrew || upgradeAll || !hasTarget
 		runNpm  := upgradeNpm  || upgradeAll || !hasTarget
 		runGem  := upgradeGem  || upgradeAll || !hasTarget
@@ -37,10 +38,13 @@ var upgradeCmd = &cobra.Command{
 
 		if runSelf {
 			sections = append(sections, "self")
-			if err := sectionSelf(cmd); err != nil {
-				fmt.Fprintf(os.Stderr, "✗ siti-cli 升级失败: %v\n", err)
-			}
+			updated := sectionSelf(cmd)
 			fmt.Println()
+			if updated {
+				fmt.Println("→ siti-cli 已更新，建议重新运行: siti upgrade")
+				fmt.Printf("→ 完成 (took %s) [self]\n", time.Since(t0).Round(time.Second))
+				return nil
+			}
 		}
 
 		if runBrew {

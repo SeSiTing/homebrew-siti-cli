@@ -25,11 +25,11 @@ var upgradeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		hasTarget := upgradeSelf || upgradeBrew || upgradeNpm || upgradeGem || upgradeAll
 
-		// Default (no flags): self first, then brew + npm + gem.
+		// Default (no flags): self first, then brew + npm.
 		runSelf := upgradeSelf || upgradeAll || !hasTarget
 		runBrew := upgradeBrew || upgradeAll || !hasTarget
 		runNpm  := upgradeNpm  || upgradeAll || !hasTarget
-		runGem  := upgradeGem  || upgradeAll || !hasTarget
+		runGem  := upgradeGem  || upgradeAll
 
 		t0 := time.Now()
 		var sections []string

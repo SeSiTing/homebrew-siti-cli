@@ -5,6 +5,10 @@
 
 ---
 
+## 2026-04-29 — v2.0.17
+
+- `siti upgrade` 默认流程移除 gem：系统 Ruby 的 gem 无需更新且会因权限报错，保留 `--gem` 标志供手动使用
+
 ## 2026-04-29 — v2.0.16
 
 - `siti upgrade` brew section 过滤逻辑完善：使用 `filteredBefore` 进行汇总和 diffScan，确保 siti-cli 不出现在 brew 的统计中

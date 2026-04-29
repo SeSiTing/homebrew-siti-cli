@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -91,6 +92,7 @@ func runCmdIn(dir, name string, args ...string) error {
 }
 
 func runCmdInTee(dir string, buf *bytes.Buffer, name string, args ...string) error {
+	fmt.Fprintf(os.Stderr, "  $ %s %s\n", name, strings.Join(args, " "))
 	c := exec.Command(name, args...)
 	c.Stdin = os.Stdin
 	c.Dir = dir

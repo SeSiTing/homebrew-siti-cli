@@ -42,11 +42,11 @@ func (s *scanResult) summary() string {
 	return strings.Join(parts, " + ")
 }
 
-// parseOutdated parses "brew outdated [--cask] [--greedy]" output.
-// Format: "name oldVer < newVer [(size)]"
+// parseOutdated parses "brew outdated --verbose [--cask] [--greedy]" output.
+// Format: "name (oldVer) < newVer" or "name (oldVer) != newVer" (optional size in parens).
 func parseOutdated(out string) []pkgInfo {
 	var pkgs []pkgInfo
-	re := regexp.MustCompile(`^(\S+)\s+(.+)\s+<\s+(\S+)(?:\s+\(([^)]+)\))?`)
+	re := regexp.MustCompile(`^(\S+)\s+\(([^)]+)\)\s+(?:<|!=)\s+(\S+)(?:\s+\(([^)]+)\))?`)
 	for _, line := range strings.Split(out, "\n") {
 		m := re.FindStringSubmatch(line)
 		if m == nil {
@@ -246,14 +246,14 @@ func scanOutdated() (scanResult, error) {
 
 	// Scan formula
 	var fBuf bytes.Buffer
-	if err := runCmdTee(&fBuf, "brew", "outdated"); err != nil {
+	if err := runCmdTee(&fBuf, "brew", "outdated", "--verbose"); err != nil {
 		return scan, fmt.Errorf("brew outdated: %w", err)
 	}
 	scan.formula = parseOutdated(fBuf.String())
 
 	// Scan cask
 	var cBuf bytes.Buffer
-	if err := runCmdTee(&cBuf, "brew", "outdated", "--cask", "--greedy"); err != nil {
+	if err := runCmdTee(&cBuf, "brew", "outdated", "--cask", "--greedy", "--verbose"); err != nil {
 		return scan, fmt.Errorf("brew outdated --cask: %w", err)
 	}
 	scan.cask = parseOutdated(cBuf.String())

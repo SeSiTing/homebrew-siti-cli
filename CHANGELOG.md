@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-04-29 — v2.0.10
+
+- `siti brew up` 修复扫描始终为空导致跳过升级的问题：`brew outdated` 默认只输出包名，改为 `--verbose` 获取版本信息，同时解析 `!=` 操作符
+- `runCmd` 打印原始命令（`$ brew upgrade`），方便追踪执行过程
+
 ## 2026-04-28 — v2.0.9 · `siti brew up` 预览与汇总
 
 - `siti brew up` 升级前自动扫描并展示待更新的 formula / cask 清单，消除盲盒感

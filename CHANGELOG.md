@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-04-29 — v2.0.13
+
+- `siti upgrade` 重构为多包管理器升级命令：默认升级 brew + npm global + gem，新增 `--self` / `--brew` / `--npm` / `--gem` / `--all` / `--dry-run` 标志
+- `upgrade.go` 拆分为 5 个文件（upgrade.go + upgrade_self.go + upgrade_brew.go + upgrade_npm.go + upgrade_gem.go），每文件 <110 行
+- `runCmd` 系列工具函数从 upgrade.go 迁移至 util.go，避免 brew.go 编译断裂
+
 ## 2026-04-29 — v2.0.12
 
 - `siti brew up` 升级后新增二次扫描验证步骤，通过前后 outdated 差值精确汇总当次实际更新的 formula / cask 列表（含版本号和包名）

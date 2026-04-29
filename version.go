@@ -8,4 +8,4 @@ package main
 // 发版前将此值改为目标版本号，例如：
 //
 //	var version = "2.1.0"
-var version = "2.0.12"
+var version = "2.0.13"

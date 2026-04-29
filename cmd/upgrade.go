@@ -1,119 +1,88 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 )
 
+var (
+	upgradeSelf     bool
+	upgradeBrew     bool
+	upgradeNpm      bool
+	upgradeGem      bool
+	upgradeAll      bool
+	upgradeDryRun   bool
+)
+
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
-	Short: "升级 siti-cli 到最新版本",
+	Short: "升级 siti-cli 或系统包管理器中的包",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		installMethod := os.Getenv("INSTALL_METHOD") // set by wrapper if needed
+		hasTarget := upgradeSelf || upgradeBrew || upgradeNpm || upgradeGem || upgradeAll
 
-		fmt.Printf("\nsiti-cli 升级工具\n")
-		fmt.Printf("   当前版本: v%s\n\n", cmd.Root().Version)
+		runSelf := upgradeSelf || upgradeAll
+		runBrew := upgradeBrew || upgradeAll || !hasTarget
+		runNpm  := upgradeNpm  || upgradeAll || !hasTarget
+		runGem  := upgradeGem  || upgradeAll || !hasTarget
 
-		if installMethod == "" {
-			// Auto-detect: if brew knows about siti-cli, use brew.
-			if _, err := exec.LookPath("brew"); err == nil {
-				out, _ := exec.Command("brew", "list", "--formula", "siti-cli").Output()
-				if len(out) > 0 {
-					installMethod = "homebrew"
+		t0 := time.Now()
+		var sections []string
+
+		fmt.Println()
+
+		if runSelf {
+			sections = append(sections, "self")
+			if err := sectionSelf(cmd); err != nil {
+				fmt.Fprintf(os.Stderr, "✗ siti-cli 升级失败: %v\n", err)
+			}
+			fmt.Println()
+		}
+
+		if runBrew {
+			sections = append(sections, "brew")
+			if upgradeDryRun {
+				sectionBrewDryRun()
+			} else {
+				if err := sectionBrew(); err != nil {
+					fmt.Fprintf(os.Stderr, "✗ brew: %v\n", err)
 				}
 			}
+			fmt.Println()
 		}
 
-		switch installMethod {
-		case "homebrew", "":
-			return upgradeViaBrew()
-		case "standalone":
-			return upgradeViaGit()
-		default:
-			fmt.Printf("! 安装方式: %s\n", installMethod)
-			fmt.Println("请手动更新:")
-			fmt.Println("  Homebrew: brew upgrade siti-cli")
-			fmt.Println("  独立安装: cd ~/.siti-cli && git pull")
+		if runNpm {
+			sections = append(sections, "npm")
+			if err := sectionNpm(); err != nil {
+				fmt.Fprintf(os.Stderr, "✗ npm: %v\n", err)
+			}
+			fmt.Println()
 		}
+
+		if runGem {
+			sections = append(sections, "gem")
+			if err := sectionGem(); err != nil {
+				fmt.Fprintf(os.Stderr, "✗ gem: %v\n", err)
+			}
+			fmt.Println()
+		}
+
+		elapsed := time.Since(t0).Round(time.Second)
+		fmt.Printf("→ 完成 (took %s) [%s]\n", elapsed, strings.Join(sections, " + "))
 		return nil
 	},
 }
 
-func upgradeViaBrew() error {
-	fmt.Println("→ 通过 Homebrew 更新...")
-
-	start := time.Now()
-	if err := runCmd("brew", "update"); err != nil {
-		fmt.Fprintf(os.Stderr, "! brew update 失败: %v\n", err)
-	}
-	if err := runCmd("brew", "upgrade", "siti-cli"); err != nil {
-		return fmt.Errorf("升级失败: %w", err)
-	}
-	fmt.Printf("\n✓ 升级完成 (took %s)\n", time.Since(start).Round(time.Second))
-	return nil
-}
-
-func upgradeViaGit() error {
-	installDir := os.ExpandEnv("$HOME/.siti-cli")
-	if _, err := os.Stat(installDir); os.IsNotExist(err) {
-		return fmt.Errorf("未找到安装目录: %s", installDir)
-	}
-
-	fmt.Println("→ 通过 Git 更新...")
-	if err := runCmdIn(installDir, "git", "pull", "--rebase", "--autostash", "origin", "main"); err != nil {
-		return fmt.Errorf("git pull 失败: %w", err)
-	}
-	fmt.Println("\n✓ 更新完成")
-	return nil
-}
-
-// runCmd runs a command inheriting stdout/stderr so the user sees live output.
-func runCmd(name string, args ...string) error {
-	return runCmdIn("", name, args...)
-}
-
-// runCmdTee is like runCmd but also tees stdout into buf for post-run parsing.
-func runCmdTee(buf *bytes.Buffer, name string, args ...string) error {
-	return runCmdInTee("", buf, name, args...)
-}
-
-// runCmdIn runs a command in the specified directory (empty = inherit cwd).
-// Uses exec.Command.Dir to avoid mutating the process-wide working directory.
-func runCmdIn(dir, name string, args ...string) error {
-	return runCmdInTee(dir, nil, name, args...)
-}
-
-func runCmdInTee(dir string, buf *bytes.Buffer, name string, args ...string) error {
-	fmt.Fprintf(os.Stderr, "  $ %s %s\n", name, strings.Join(args, " "))
-	c := exec.Command(name, args...)
-	c.Stdin = os.Stdin
-	c.Dir = dir
-	if buf != nil {
-		c.Stdout = io.MultiWriter(os.Stdout, buf)
-	} else {
-		c.Stdout = os.Stdout
-	}
-	c.Stderr = os.Stderr
-	return c.Run()
-}
-
-// runCmdOutput runs a command and captures stdout into buf without printing to terminal.
-func runCmdOutput(buf *bytes.Buffer, name string, args ...string) error {
-	c := exec.Command(name, args...)
-	c.Stdin = os.Stdin
-	c.Stdout = buf
-	c.Stderr = nil
-	return c.Run()
-}
-
 func init() {
+	upgradeCmd.Flags().BoolVar(&upgradeSelf, "self", false, "仅升级 siti-cli 自身")
+	upgradeCmd.Flags().BoolVar(&upgradeBrew, "brew", false, "仅升级 Homebrew 包")
+	upgradeCmd.Flags().BoolVar(&upgradeNpm, "npm", false, "仅升级 npm 全局包")
+	upgradeCmd.Flags().BoolVar(&upgradeGem, "gem", false, "仅升级 Ruby gem")
+	upgradeCmd.Flags().BoolVar(&upgradeAll, "all", false, "升级所有包管理器（含 self）")
+	upgradeCmd.Flags().BoolVarP(&upgradeDryRun, "dry-run", "n", false, "仅预览，不执行更新")
 	rootCmd.AddCommand(upgradeCmd)
 }

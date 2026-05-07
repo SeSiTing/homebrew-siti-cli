@@ -5,6 +5,10 @@
 
 ---
 
+## 2026-05-07 — v2.0.20
+
+- fix: `siti upgrade` 检查 brew 版本前先 `brew update`，避免本地 tap 过期时误报"已是最新版本"
+
 ## 2026-05-07 — v2.0.19
 
 - shell wrapper 提示改用 `siti init zsh --auto` 替代 `echo >> .zshrc`，自带防重复检测避免重复追加

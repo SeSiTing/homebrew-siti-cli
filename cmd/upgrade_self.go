@@ -25,15 +25,15 @@ func sectionSelf(cmd *cobra.Command) bool {
 
 	switch installMethod {
 	case "homebrew", "":
+		if _, err := exec.LookPath("brew"); err == nil {
+			runCmd("brew", "update")
+		}
 		outdated, _ := exec.Command("brew", "outdated", "siti-cli").Output()
 		if len(outdated) == 0 {
 			fmt.Println("✓ 已是最新版本")
 			return false
 		}
 		fmt.Println("→ brew upgrade siti-cli")
-		if _, err := exec.LookPath("brew"); err == nil {
-			runCmd("brew", "update")
-		}
 		runCmd("brew", "upgrade", "siti-cli")
 		fmt.Println("✓ done")
 		return true

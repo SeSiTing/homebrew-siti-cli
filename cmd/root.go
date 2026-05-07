@@ -90,11 +90,9 @@ func printWrapperHint() {
 	}
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "  永久生效:")
+	fmt.Fprintf(os.Stderr, "    siti init %s --auto\n", shellType)
 	if rc != "" {
-		fmt.Fprintf(os.Stderr, "    echo 'eval \"$(siti init %s)\"' >> %s\n", shellType, rc)
 		fmt.Fprintf(os.Stderr, "    source %s\n", rc)
-	} else {
-		fmt.Fprintf(os.Stderr, "    将 eval \"$(siti init %s)\" 添加到 shell 配置文件\n", shellType)
 	}
 	fmt.Fprintln(os.Stderr)
 }

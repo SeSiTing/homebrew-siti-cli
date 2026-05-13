@@ -5,6 +5,10 @@
 
 ---
 
+## 2026-08-06 — v2.0.24
+
+- `siti upgrade` 新增 `--bl-ops` 目标，并在 `--all` 中纳入 `bl-ops`；优先识别 uv editable 安装，从本地源码刷新
+
 ## 2026-08-04 — v2.0.23
 
 - 内置 DeepSeek Anthropic provider，统一使用 `DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL` 与官方 Anthropic Base URL

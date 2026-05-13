@@ -34,6 +34,8 @@ bash / fish 把 `zsh` 替换为对应名称即可。
 
 ```bash
 brew upgrade siti-cli   # 或 siti upgrade
+siti upgrade --bl-ops   # 刷新 bl-ops（优先识别 uv editable 安装）
+siti upgrade --all      # self + brew + npm + bl-ops
 brew uninstall siti-cli # 卸载后手动删除 ~/.zshrc 里的 wrapper 行
 ```
 
@@ -65,7 +67,10 @@ siti logs clean             # 清理当前目录 *.log
 
 # Homebrew & 自身
 siti brew up                # brew update + upgrade + cleanup 一键
-siti upgrade                # 升级 siti-cli 自身
+siti upgrade                # 默认升级 self + brew + npm
+siti upgrade --self         # 仅升级 siti-cli 自身
+siti upgrade --bl-ops       # 升级或刷新 bl-ops
+siti upgrade --all          # 升级 self + brew + npm + bl-ops
 siti init zsh|bash|fish     # 输出 shell wrapper
 ```
 

@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	upgradeSelf     bool
-	upgradeBrew     bool
-	upgradeNpm      bool
-	upgradeAll      bool
-	upgradeDryRun   bool
+	upgradeSelf   bool
+	upgradeBrew   bool
+	upgradeNpm    bool
+	upgradeAll    bool
+	upgradeDryRun bool
 )
 
 var upgradeCmd = &cobra.Command{
@@ -27,7 +27,7 @@ var upgradeCmd = &cobra.Command{
 		// Default (no flags): self first, then brew + npm.
 		runSelf := upgradeSelf || upgradeAll || !hasTarget
 		runBrew := upgradeBrew || upgradeAll || !hasTarget
-		runNpm  := upgradeNpm  || upgradeAll || !hasTarget
+		runNpm := upgradeNpm || upgradeAll || !hasTarget
 
 		t0 := time.Now()
 		var sections []string
@@ -36,7 +36,10 @@ var upgradeCmd = &cobra.Command{
 
 		if runSelf {
 			sections = append(sections, "self")
-			updated := sectionSelf(cmd)
+			updated, err := sectionSelf(cmd)
+			if err != nil {
+				return err
+			}
 			fmt.Println()
 			if updated {
 				fmt.Println("→ siti-cli 已更新，建议重新运行: siti upgrade")

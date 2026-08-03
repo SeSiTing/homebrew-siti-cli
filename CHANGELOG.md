@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-03 — v2.0.22
+
+- 修复新版 Homebrew 要求第三方 tap 信任时，`siti upgrade` 忽略错误并误报“已是最新版本”的问题
+- 自升级统一使用完整 Formula 名称 `SeSiTing/tap/siti-cli`，并在 update、版本检查或 upgrade 失败时明确报错
+
 ## 2026-08-03 — v2.0.21
 
 - `siti ai switch` 默认切换当前 shell 的 Claude + Grok，新增 `--client claude|grok|codex|all` 明确客户端作用域

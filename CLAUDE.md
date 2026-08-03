@@ -123,7 +123,7 @@ wrapper 看到 exit 10
 │
 ├── cmd/                          # 命令实现，每个文件一个 namespace
 │   ├── root.go                   # rootCmd + Execute() + Eval(c, lines...)
-│   ├── ai.go                     # siti ai switch/list/current/test/clear
+│   ├── ai.go / ai_*.go           # AI 客户端切换、状态、凭证与诊断
 │   ├── proxy.go                  # siti proxy on/off/status
 │   ├── initcmd.go                # siti init zsh|bash|fish
 │   ├── version.go                # siti version
@@ -134,14 +134,17 @@ wrapper 看到 exit 10
 │   ├── shell/
 │   │   ├── eval.go               # Export/ExportRef/Unset/SourceIf 字符串 helper
 │   │   ├── eval_test.go
-│   │   ├── wrapper.go            # posixWrapper / fishWrapper 模板
+│   │   ├── wrapper.go            # siti exit-10 + 当前 shell 的 Grok model 注入
 │   │   ├── wrapper_test.go       # snapshot 测试（-update 刷新 golden）
 │   │   └── testdata/
 │   │       ├── wrapper_zsh.golden
 │   │       └── wrapper_fish.golden
 │   └── config/
-│       ├── zshrc.go              # 解析 ~/.zshenv + ~/.zshrc 发现 Provider
-│       └── zshrc_test.go
+│       ├── zshrc.go              # Provider 发现、内置默认值与覆盖
+│       ├── grok.go               # provider-specific Grok 模型入口
+│       ├── codex.go              # Codex 全局 managed block + 备份/恢复
+│       ├── credentials.go        # OS Keychain / Secret Service
+│       └── *_test.go
 │
 └── completions/                  # cobra 自动生成，goreleaser 也会重新生成
     ├── _siti
@@ -183,20 +186,27 @@ func init() { rootCmd.AddCommand(fooCmd) }
 
 约定：
 - stdout 给机器读（exit 10 时是 shell 代码，否则是 `siti ai list` 这类纯输出）
-- stderr 给人读（`printErr("✅ 已切换到 %s", name)`）
+- stderr 给人读（`printErr("✓ 已切换到 %s", name)`）
 - `return nil` 表示成功；返回 error 由 cobra 自动打到 stderr 并以 exit 1 结束
 
 ### AI 服务商发现
 
-`siti ai` 从 `~/.zshenv` 和 `~/.zshrc` 解析：
+`siti ai` 内置 Ali Coding Plan / Bailian 的非敏感地址与 `qwen3.8-max` 默认模型，并从 `~/.zshenv` 和 `~/.zshrc` 解析自定义覆盖：
 
 - `export <NAME>_BASE_URL=...` → 注册 provider `<NAME>`
 - 同名 `<NAME>_API_KEY` → AuthTokenVar；否则回退到 `DEFAULT_AUTH_TOKEN`
 - 同名 `<NAME>_MODEL` → ModelVar（切换时同步设置 5 个 ANTHROPIC_*_MODEL）
+- 可选 `<NAME>_GROK_BASE_URL` → 同一 provider 启用 Grok Build 切换
+- Grok 默认复用 `<NAME>_API_KEY` / `<NAME>_MODEL`，可由 `<NAME>_GROK_API_KEY` / `<NAME>_GROK_MODEL` 覆盖
+- Grok 首次切换时在 `~/.grok/config.toml` 自动安装无密钥的 `siti-<provider>` 模型入口
+- shell wrapper 读取 `SITI_GROK_MODEL_ID`，在未显式传 `--model` 时为当前 shell 的 `grok` 注入对应模型
+- Codex 仅在显式 `--client codex` / `all` 时全局修改 `$CODEX_HOME/config.toml`；写入前备份且不修改 `auth.json`
+- Codex Key 通过 `siti ai credential import` 存入系统凭证库，配置使用 command-backed auth，不写明文 Key
+- 自定义 Codex 映射使用 `<NAME>_CODEX_BASE_URL` / `_API_KEY` / `_MODEL`，端点必须支持 Responses API
 - `SITI_AI_SKIP="A,B,C"` → 跳过列表（环境变量优先于 zshrc 解析）
 - `ANTHROPIC` 前缀本身被忽略（避免循环引用）
 
-切换时只 `eval` 引用：`export ANTHROPIC_BASE_URL="$MINIMAX_BASE_URL"`，token 不落盘到任何 siti 文件。
+默认 `siti ai switch` 只切当前 shell 的 Claude + 可用 Grok；Codex 必须显式选择。切换前完成全部 Key、协议和 wrapper 预检，失败不修改客户端配置。
 
 ## 测试规范
 

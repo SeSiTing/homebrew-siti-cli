@@ -8,7 +8,8 @@ import (
 )
 
 // Run with -update to refresh golden files after intentional wrapper changes:
-//   go test ./internal/shell -update
+//
+//	go test ./internal/shell -update
 var update = flag.Bool("update", false, "update wrapper snapshot golden files")
 
 func TestWrapper_Snapshot(t *testing.T) {
@@ -53,6 +54,17 @@ func TestWrapper_NoGrepFilter(t *testing.T) {
 			w := WrapperFor(sh)
 			if contains(w, "grep -E") {
 				t.Errorf("%s wrapper contains grep filter — must trust binary stdout", sh)
+			}
+		})
+	}
+}
+
+func TestWrapper_GrokModelInjection(t *testing.T) {
+	for _, sh := range []string{"zsh", "fish"} {
+		t.Run(sh, func(t *testing.T) {
+			w := WrapperFor(sh)
+			if !contains(w, "SITI_GROK_MODEL_ID") || !contains(w, "--model") {
+				t.Errorf("%s wrapper does not inject the selected Grok model", sh)
 			}
 		})
 	}

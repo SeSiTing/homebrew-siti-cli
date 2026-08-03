@@ -5,6 +5,15 @@
 
 ---
 
+## 2026-08-03 — v2.0.21
+
+- `siti ai switch` 默认切换当前 shell 的 Claude + Grok，新增 `--client claude|grok|codex|all` 明确客户端作用域
+- 内置 Ali Coding Plan / Bailian 地址和正式模型 `qwen3.8-max`；缺少 Key 时在修改前给出操作提示
+- Grok 首次切换自动安装无密钥模型入口，shell wrapper 按当前 Shell 注入模型且尊重显式 `--model`
+- 新增 Bailian Codex Responses 全局切换、配置备份/恢复和系统凭证库认证；Ali Coding Plan 因不支持 Responses API 会明确拒绝
+- 新增 `siti ai doctor`、多客户端 `current` / `clear` 和 `siti ai credential` 凭证管理命令
+- 修复根命令静默吞掉 Cobra 错误的问题，缺 Key、协议不支持等诊断现在会正常显示
+
 ## 2026-05-07 — v2.0.20
 
 - fix: `siti upgrade` 检查 brew 版本前先 `brew update`，避免本地 tap 过期时误报"已是最新版本"

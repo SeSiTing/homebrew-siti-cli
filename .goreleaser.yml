@@ -66,7 +66,7 @@ brews:
       bash_completion.install "completions/siti.bash" => "siti"
     caveats: |
       首次安装后运行以下命令配置 shell wrapper：
-        echo 'eval "$(siti init zsh)"' >> ~/.zshrc
+        siti init zsh --auto
         source ~/.zshrc
     test: |
       assert_match version.to_s, shell_output("#{bin}/siti --version")

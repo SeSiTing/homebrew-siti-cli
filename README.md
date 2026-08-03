@@ -24,7 +24,7 @@ brew install siti-cli
 安装后**必须**配置 shell wrapper（一次性，让 `ai switch` / `proxy on` 能改父 shell 环境）：
 
 ```bash
-echo 'eval "$(siti init zsh)"' >> ~/.zshrc
+siti init zsh --auto
 source ~/.zshrc
 ```
 
@@ -45,10 +45,13 @@ siti version                # 显示版本（也可用 -v / --version）
 
 # AI 服务商
 siti ai list                # 列出可用服务商
-siti ai current             # 当前服务商
-siti ai switch [name]       # 切换（无参数交互式选择）
-siti ai test                # 测试当前 API 连通性
-siti ai clear               # 清除 ANTHROPIC_* 变量
+siti ai current             # 显示 Claude / Grok / Codex 当前配置
+siti ai switch [name]       # 默认切换当前 shell 的 Claude + Grok
+siti ai switch bailian --client codex  # 全局切换 Codex
+siti ai doctor              # 检查环境变量、系统凭证和配置
+siti ai test                # 测试当前 Claude API 连通性
+siti ai clear               # 清除当前 shell 的 Claude + Grok 变量
+siti ai clear --client codex            # 恢复 Codex 原有全局配置
 
 # 终端代理 (127.0.0.1:7890)
 siti proxy on / off
@@ -68,26 +71,46 @@ siti init zsh|bash|fish     # 输出 shell wrapper
 
 ## AI 服务商配置
 
-`siti ai` 从 `~/.zshenv` 和 `~/.zshrc` 自动发现 `*_BASE_URL` 形式的环境变量。
-约定：
+Ali Coding Plan 和百炼 Bailian 的非敏感地址、默认模型 `qwen3.8-max` 已内置，通常只需配置 API Key：
 
 ```bash
-# ~/.zshrc 或 ~/.zshenv 中按需添加
-export MINIMAX_BASE_URL="https://api.minimaxi.com/anthropic"
-export MINIMAX_API_KEY="sk-..."
-export MINIMAX_MODEL="abab6.5"          # 可选：切换时同步设置 ANTHROPIC_MODEL
+export ALI_API_KEY="sk-sp-..."     # Coding Plan
+export BAILIAN_API_KEY="sk-..."    # 百炼按量付费 / Token Plan
 
-export ZHIPU_BASE_URL="https://open.bigmodel.cn/api/anthropic"
-export ZHIPU_API_KEY="..."
-
-# 不设 <PROVIDER>_API_KEY 时回退到 DEFAULT_AUTH_TOKEN
-export DEFAULT_AUTH_TOKEN="..."
+# 可选覆盖；不设置时使用 qwen3.8-max
+export ALI_MODEL="qwen3.8-max"
+export BAILIAN_MODEL="qwen3.8-max"
 
 # 跳过列表（逗号分隔，大写名称）
-export SITI_AI_SKIP="OPENAI,BAILIAN"
+export SITI_AI_SKIP="OPENAI,OPENROUTER"
 ```
 
-执行 `siti ai switch minimax` 时，wrapper 会把 `ANTHROPIC_BASE_URL` 等指向上面的引用变量，**仅当前 shell 生效**。要永久切换默认值，自行修改 zshrc。
+建议保护包含密钥的配置文件：
+
+```bash
+chmod 600 ~/.zshenv
+```
+
+默认命令只修改当前 shell，不碰 Codex：
+
+```bash
+siti ai switch ali                  # Claude + Grok
+siti ai switch ali --client claude
+siti ai switch ali --client grok
+```
+
+Grok 的无密钥模型入口会在首次切换时自动写入 `~/.grok/config.toml`。shell wrapper 会让当前 Shell 中启动的 `grok` 自动使用 `siti-ali` 等对应入口；显式传入 `grok --model ...` 时以用户参数为准。需要覆盖内置映射时，可使用 `ALI_GROK_BASE_URL`、`ALI_GROK_API_KEY`、`ALI_GROK_MODEL` 等客户端专属变量并重新切换。
+
+Codex 必须显式全局切换。先把 Key 从环境变量导入 macOS Keychain / Linux Secret Service，再切换：
+
+```bash
+siti ai credential import bailian --from-env BAILIAN_API_KEY
+siti ai switch bailian --client codex
+```
+
+该命令只管理 `~/.codex/config.toml` 中带 `siti-cli` 标记的区块，写入前备份，不修改 `auth.json`。它会影响 Codex CLI、Desktop 和 IDE，已运行的 Codex 需要重启。Ali Coding Plan 不支持 Codex 所需的 Responses API，因此 `siti ai switch ali --client codex` 会在修改前明确拒绝；Bailian Responses-compatible 端点可以直接使用。若已有 Responses 转换路由，可显式设置 `ALI_CODEX_BASE_URL` 启用 Ali 的 Codex 映射。
+
+自定义服务商仍可通过 `<NAME>_BASE_URL`、`<NAME>_API_KEY`、`<NAME>_MODEL` 注册；Grok 使用 `<NAME>_GROK_*`，Codex 使用 Responses-compatible 的 `<NAME>_CODEX_*`。未设置客户端专属 Key/Model 时回退到通用变量。
 
 ## 工作机制
 

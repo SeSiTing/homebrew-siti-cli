@@ -18,15 +18,79 @@ type Provider struct {
 	Name string
 	// BaseURLVar is the env var name holding the base URL, e.g. "MINIMAX_BASE_URL".
 	BaseURLVar string
+	// BaseURLDefault is used when BaseURLVar is not set in the current process.
+	BaseURLDefault string
 	// AuthTokenVar is the env var used for auth. Defaults to "DEFAULT_AUTH_TOKEN".
 	AuthTokenVar string
 	// ModelVar is the env var for model overrides, e.g. "MINIMAX_MODEL". Empty if unset.
 	ModelVar string
+	// ModelDefault is used when ModelVar is not set.
+	ModelDefault string
+	// GrokBaseURLVar is the optional OpenAI-compatible endpoint used by Grok Build.
+	GrokBaseURLVar string
+	// GrokBaseURLDefault is the built-in OpenAI-compatible endpoint for Grok Build.
+	GrokBaseURLDefault string
+	// GrokAuthTokenVar is the env var Grok Build uses for auth.
+	GrokAuthTokenVar string
+	// GrokModelVar is the model env var used by Grok Build.
+	GrokModelVar string
+	// CodexBaseURLVar optionally overrides the Responses-compatible Codex endpoint.
+	CodexBaseURLVar string
+	// CodexBaseURLDefault is the built-in Responses-compatible Codex endpoint.
+	CodexBaseURLDefault string
+	// CodexAuthTokenVar identifies the key that can be imported into secure storage.
+	CodexAuthTokenVar string
+	// CodexModelVar optionally overrides the model used by Codex.
+	CodexModelVar string
+	// CodexModelDefault is the built-in Codex model.
+	CodexModelDefault string
+	// CodexUnsupportedReason explains why a provider cannot be used by Codex.
+	CodexUnsupportedReason string
 }
 
 // DisplayName returns the lowercase display name, e.g. "minimax".
 func (p Provider) DisplayName() string {
 	return strings.ToLower(p.Name)
+}
+
+// BaseURL resolves the Claude-compatible endpoint.
+func (p Provider) BaseURL() string {
+	return envOrDefault(p.BaseURLVar, p.BaseURLDefault)
+}
+
+// Model resolves the provider's Claude model.
+func (p Provider) Model() string {
+	return envOrDefault(p.ModelVar, p.ModelDefault)
+}
+
+// GrokBaseURL resolves the provider's Chat Completions endpoint.
+func (p Provider) GrokBaseURL() string {
+	return envOrDefault(p.GrokBaseURLVar, p.GrokBaseURLDefault)
+}
+
+// GrokModel resolves the provider's Grok model.
+func (p Provider) GrokModel() string {
+	return envOrDefault(p.GrokModelVar, p.Model())
+}
+
+// CodexBaseURL resolves the provider's Responses endpoint.
+func (p Provider) CodexBaseURL() string {
+	return envOrDefault(p.CodexBaseURLVar, p.CodexBaseURLDefault)
+}
+
+// CodexModel resolves the provider's Codex model.
+func (p Provider) CodexModel() string {
+	return envOrDefault(p.CodexModelVar, p.Model())
+}
+
+// SupportsGrok reports whether this provider has a complete Grok Build mapping.
+func (p Provider) SupportsGrok() bool {
+	return p.GrokBaseURL() != "" && p.GrokAuthTokenVar != "" && p.GrokModel() != ""
+}
+
+// SupportsCodex reports whether this provider has a Responses-compatible mapping.
+func (p Provider) SupportsCodex() bool {
+	return p.CodexBaseURL() != "" && p.CodexAuthTokenVar != "" && p.CodexModel() != "" && p.CodexUnsupportedReason == ""
 }
 
 // IsSkipped reports whether this provider is in the skip list.
@@ -57,13 +121,54 @@ func (pl ProviderList) Find(name string) (Provider, bool) {
 // reExportBaseURL matches lines like: export MINIMAX_BASE_URL="..."
 var reExportBaseURL = regexp.MustCompile(`^export\s+([A-Z0-9_]+)_BASE_URL=`)
 
+const defaultQwenModel = "qwen3.8-max"
+
+var builtInProviders = ProviderList{
+	{
+		Name:                   "ALI",
+		BaseURLVar:             "ALI_BASE_URL",
+		BaseURLDefault:         "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+		AuthTokenVar:           "ALI_API_KEY",
+		ModelVar:               "ALI_MODEL",
+		ModelDefault:           defaultQwenModel,
+		GrokBaseURLVar:         "ALI_GROK_BASE_URL",
+		GrokBaseURLDefault:     "https://coding.dashscope.aliyuncs.com/v1",
+		GrokAuthTokenVar:       "ALI_API_KEY",
+		GrokModelVar:           "ALI_MODEL",
+		CodexAuthTokenVar:      "ALI_API_KEY",
+		CodexModelVar:          "ALI_MODEL",
+		CodexModelDefault:      defaultQwenModel,
+		CodexUnsupportedReason: "Ali Coding Plan 不支持 Codex 所需的 Responses API",
+	},
+	{
+		Name:                "BAILIAN",
+		BaseURLVar:          "BAILIAN_BASE_URL",
+		BaseURLDefault:      "https://dashscope.aliyuncs.com/apps/anthropic",
+		AuthTokenVar:        "BAILIAN_API_KEY",
+		ModelVar:            "BAILIAN_MODEL",
+		ModelDefault:        defaultQwenModel,
+		GrokBaseURLVar:      "BAILIAN_GROK_BASE_URL",
+		GrokBaseURLDefault:  "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		GrokAuthTokenVar:    "BAILIAN_API_KEY",
+		GrokModelVar:        "BAILIAN_MODEL",
+		CodexBaseURLVar:     "BAILIAN_CODEX_BASE_URL",
+		CodexBaseURLDefault: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		CodexAuthTokenVar:   "BAILIAN_API_KEY",
+		CodexModelVar:       "BAILIAN_MODEL",
+		CodexModelDefault:   defaultQwenModel,
+	},
+}
+
 // ReadProviders parses ~/.zshenv and ~/.zshrc to discover AI provider definitions.
 // It reads both files and deduplicates by provider name (zshenv takes precedence).
 //
 // A provider is recognized when a line matching `export <NAME>_BASE_URL=` is found.
 // The following optional variables are also probed:
 //   - <NAME>_API_KEY  → AuthTokenVar (falls back to DEFAULT_AUTH_TOKEN)
-//   - <NAME>_MODEL    → ModelVar
+//   - <NAME>_MODEL          → ModelVar
+//   - <NAME>_GROK_BASE_URL  → GrokBaseURLVar
+//   - <NAME>_GROK_API_KEY   → GrokAuthTokenVar (falls back to AuthTokenVar)
+//   - <NAME>_GROK_MODEL     → GrokModelVar (falls back to ModelVar)
 func ReadProviders() (ProviderList, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -90,24 +195,41 @@ func ReadProviders() (ProviderList, error) {
 			continue
 		}
 		name := m[1]
-		if name == "ANTHROPIC" || seen[name] {
+		if name == "ANTHROPIC" || strings.HasSuffix(name, "_GROK") || strings.HasSuffix(name, "_CODEX") || strings.HasSuffix(name, "_OPENAI") || seen[name] {
 			continue // skip the target variable itself and duplicates
 		}
 		seen[name] = true
 
-		p := Provider{
-			Name:       name,
-			BaseURLVar: name + "_BASE_URL",
+		p, builtIn := builtInProviders.Find(name)
+		if !builtIn {
+			p = Provider{Name: name, BaseURLVar: name + "_BASE_URL"}
 		}
-		if defined[name+"_API_KEY"] {
+		if variableDefined(name+"_API_KEY", defined) {
 			p.AuthTokenVar = name + "_API_KEY"
-		} else {
+		} else if !builtIn {
 			p.AuthTokenVar = "DEFAULT_AUTH_TOKEN"
 		}
-		if defined[name+"_MODEL"] {
+		if defined[name+"_MODEL"] && p.ModelVar == "" {
 			p.ModelVar = name + "_MODEL"
 		}
-		providers = append(providers, p)
+		if defined[name+"_GROK_BASE_URL"] {
+			p.GrokBaseURLVar = name + "_GROK_BASE_URL"
+			p.GrokAuthTokenVar = p.AuthTokenVar
+			p.GrokModelVar = p.ModelVar
+			if defined[name+"_GROK_API_KEY"] {
+				p.GrokAuthTokenVar = name + "_GROK_API_KEY"
+			}
+			if defined[name+"_GROK_MODEL"] {
+				p.GrokModelVar = name + "_GROK_MODEL"
+			}
+		}
+		providers = append(providers, applyProviderOverrides(p, defined))
+	}
+
+	for _, p := range builtInProviders {
+		if !seen[p.Name] {
+			providers = append(providers, applyProviderOverrides(p, defined))
+		}
 	}
 
 	return providers, nil
@@ -186,4 +308,42 @@ func splitComma(s string) []string {
 		}
 	}
 	return out
+}
+
+func envOrDefault(name, fallback string) string {
+	if name != "" {
+		if value := os.Getenv(name); value != "" {
+			return value
+		}
+	}
+	return fallback
+}
+
+func applyProviderOverrides(p Provider, defined map[string]bool) Provider {
+	name := p.Name
+	if variableDefined(name+"_GROK_API_KEY", defined) {
+		p.GrokAuthTokenVar = name + "_GROK_API_KEY"
+	}
+	if variableDefined(name+"_GROK_MODEL", defined) {
+		p.GrokModelVar = name + "_GROK_MODEL"
+	}
+	if variableDefined(name+"_CODEX_BASE_URL", defined) {
+		p.CodexBaseURLVar = name + "_CODEX_BASE_URL"
+		p.CodexUnsupportedReason = ""
+	}
+	if variableDefined(name+"_CODEX_API_KEY", defined) {
+		p.CodexAuthTokenVar = name + "_CODEX_API_KEY"
+	}
+	if variableDefined(name+"_CODEX_MODEL", defined) {
+		p.CodexModelVar = name + "_CODEX_MODEL"
+	}
+	return p
+}
+
+func variableDefined(name string, defined map[string]bool) bool {
+	if defined[name] {
+		return true
+	}
+	value, ok := os.LookupEnv(name)
+	return ok && value != ""
 }

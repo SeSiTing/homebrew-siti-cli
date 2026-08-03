@@ -47,7 +47,7 @@ func Execute(ver string) int {
 	ctx := context.WithValue(context.Background(), evalKey{}, buf)
 
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		// Real errors are already printed by Cobra.
+		fmt.Fprintf(os.Stderr, "✗ %v\n", err)
 		return 1
 	}
 

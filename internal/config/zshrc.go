@@ -20,7 +20,7 @@ type Provider struct {
 	BaseURLVar string
 	// BaseURLDefault is used when BaseURLVar is not set in the current process.
 	BaseURLDefault string
-	// AuthTokenVar is the env var used for auth. Defaults to "DEFAULT_AUTH_TOKEN".
+	// AuthTokenVar is the provider-scoped env var used for auth.
 	AuthTokenVar string
 	// ModelVar is the env var for model overrides, e.g. "MINIMAX_MODEL". Empty if unset.
 	ModelVar string
@@ -118,7 +118,7 @@ func (pl ProviderList) Find(name string) (Provider, bool) {
 	return Provider{}, false
 }
 
-// reExportBaseURL matches lines like: export MINIMAX_BASE_URL="..."
+// reExportBaseURL matches lines like MINIMAX_BASE_URL and DEEPSEEK_ANTHROPIC_BASE_URL.
 var reExportBaseURL = regexp.MustCompile(`^export\s+([A-Z0-9_]+)_BASE_URL=`)
 
 const defaultQwenModel = "qwen3.8-max"
@@ -126,12 +126,12 @@ const defaultQwenModel = "qwen3.8-max"
 var builtInProviders = ProviderList{
 	{
 		Name:                   "ALI",
-		BaseURLVar:             "ALI_BASE_URL",
+		BaseURLVar:             "ALI_ANTHROPIC_BASE_URL",
 		BaseURLDefault:         "https://coding.dashscope.aliyuncs.com/apps/anthropic",
 		AuthTokenVar:           "ALI_API_KEY",
 		ModelVar:               "ALI_MODEL",
 		ModelDefault:           defaultQwenModel,
-		GrokBaseURLVar:         "ALI_GROK_BASE_URL",
+		GrokBaseURLVar:         "ALI_CHAT_COMPLETIONS_BASE_URL",
 		GrokBaseURLDefault:     "https://coding.dashscope.aliyuncs.com/v1",
 		GrokAuthTokenVar:       "ALI_API_KEY",
 		GrokModelVar:           "ALI_MODEL",
@@ -142,31 +142,87 @@ var builtInProviders = ProviderList{
 	},
 	{
 		Name:                "BAILIAN",
-		BaseURLVar:          "BAILIAN_BASE_URL",
+		BaseURLVar:          "BAILIAN_ANTHROPIC_BASE_URL",
 		BaseURLDefault:      "https://dashscope.aliyuncs.com/apps/anthropic",
 		AuthTokenVar:        "BAILIAN_API_KEY",
 		ModelVar:            "BAILIAN_MODEL",
 		ModelDefault:        defaultQwenModel,
-		GrokBaseURLVar:      "BAILIAN_GROK_BASE_URL",
+		GrokBaseURLVar:      "BAILIAN_CHAT_COMPLETIONS_BASE_URL",
 		GrokBaseURLDefault:  "https://dashscope.aliyuncs.com/compatible-mode/v1",
 		GrokAuthTokenVar:    "BAILIAN_API_KEY",
 		GrokModelVar:        "BAILIAN_MODEL",
-		CodexBaseURLVar:     "BAILIAN_CODEX_BASE_URL",
+		CodexBaseURLVar:     "BAILIAN_RESPONSES_BASE_URL",
 		CodexBaseURLDefault: "https://dashscope.aliyuncs.com/compatible-mode/v1",
 		CodexAuthTokenVar:   "BAILIAN_API_KEY",
 		CodexModelVar:       "BAILIAN_MODEL",
 		CodexModelDefault:   defaultQwenModel,
+	},
+	{
+		Name:                   "DEEPSEEK",
+		BaseURLVar:             "DEEPSEEK_ANTHROPIC_BASE_URL",
+		BaseURLDefault:         "https://api.deepseek.com/anthropic",
+		AuthTokenVar:           "DEEPSEEK_API_KEY",
+		ModelVar:               "DEEPSEEK_MODEL",
+		ModelDefault:           "deepseek-v4-pro",
+		GrokBaseURLVar:         "DEEPSEEK_CHAT_COMPLETIONS_BASE_URL",
+		GrokBaseURLDefault:     "https://api.deepseek.com",
+		GrokAuthTokenVar:       "DEEPSEEK_API_KEY",
+		GrokModelVar:           "DEEPSEEK_MODEL",
+		CodexUnsupportedReason: "DeepSeek Anthropic 端点不支持 Codex 所需的 Responses API",
+	},
+	{
+		Name:                   "MINIMAX",
+		BaseURLVar:             "MINIMAX_ANTHROPIC_BASE_URL",
+		BaseURLDefault:         "https://api.minimaxi.com/anthropic",
+		AuthTokenVar:           "MINIMAX_API_KEY",
+		ModelVar:               "MINIMAX_MODEL",
+		ModelDefault:           "MiniMax-M2.7-highspeed",
+		GrokBaseURLVar:         "MINIMAX_CHAT_COMPLETIONS_BASE_URL",
+		GrokBaseURLDefault:     "https://api.minimaxi.com/v1",
+		GrokAuthTokenVar:       "MINIMAX_API_KEY",
+		GrokModelVar:           "MINIMAX_MODEL",
+		CodexUnsupportedReason: "MiniMax 未声明 Codex 所需的 Responses API",
+	},
+	{
+		Name:                   "ZHIPU",
+		BaseURLVar:             "ZHIPU_ANTHROPIC_BASE_URL",
+		BaseURLDefault:         "https://open.bigmodel.cn/api/anthropic",
+		AuthTokenVar:           "ZHIPU_API_KEY",
+		ModelVar:               "ZHIPU_MODEL",
+		ModelDefault:           "glm-5",
+		GrokBaseURLVar:         "ZHIPU_CHAT_COMPLETIONS_BASE_URL",
+		GrokBaseURLDefault:     "https://open.bigmodel.cn/api/paas/v4",
+		GrokAuthTokenVar:       "ZHIPU_API_KEY",
+		GrokModelVar:           "ZHIPU_MODEL",
+		CodexUnsupportedReason: "智谱未声明 Codex 所需的 Responses API",
+	},
+	{
+		Name:                "OPENROUTER",
+		BaseURLVar:          "OPENROUTER_ANTHROPIC_BASE_URL",
+		BaseURLDefault:      "https://openrouter.ai/api",
+		AuthTokenVar:        "OPENROUTER_API_KEY",
+		ModelVar:            "OPENROUTER_MODEL",
+		GrokBaseURLVar:      "OPENROUTER_CHAT_COMPLETIONS_BASE_URL",
+		GrokBaseURLDefault:  "https://openrouter.ai/api/v1",
+		GrokAuthTokenVar:    "OPENROUTER_API_KEY",
+		GrokModelVar:        "OPENROUTER_MODEL",
+		CodexBaseURLVar:     "OPENROUTER_RESPONSES_BASE_URL",
+		CodexBaseURLDefault: "https://openrouter.ai/api/v1",
+		CodexAuthTokenVar:   "OPENROUTER_API_KEY",
+		CodexModelVar:       "OPENROUTER_MODEL",
 	},
 }
 
 // ReadProviders parses ~/.zshenv and ~/.zshrc to discover AI provider definitions.
 // It reads both files and deduplicates by provider name (zshenv takes precedence).
 //
-// A provider is recognized when a line matching `export <NAME>_BASE_URL=` is found.
+// A provider is recognized from `<NAME>_BASE_URL` or `<NAME>_ANTHROPIC_BASE_URL`.
 // The following optional variables are also probed:
-//   - <NAME>_API_KEY  → AuthTokenVar (falls back to DEFAULT_AUTH_TOKEN)
+//   - <NAME>_API_KEY       → AuthTokenVar (required; no cross-provider fallback)
 //   - <NAME>_MODEL          → ModelVar
-//   - <NAME>_GROK_BASE_URL  → GrokBaseURLVar
+//   - <NAME>_CHAT_COMPLETIONS_BASE_URL → GrokBaseURLVar
+//   - <NAME>_RESPONSES_BASE_URL        → CodexBaseURLVar
+//   - <NAME>_OPENAI_BASE_URL / <NAME>_GROK_BASE_URL / <NAME>_CODEX_BASE_URL → legacy overrides
 //   - <NAME>_GROK_API_KEY   → GrokAuthTokenVar (falls back to AuthTokenVar)
 //   - <NAME>_GROK_MODEL     → GrokModelVar (falls back to ModelVar)
 func ReadProviders() (ProviderList, error) {
@@ -194,34 +250,24 @@ func ReadProviders() (ProviderList, error) {
 		if m == nil {
 			continue
 		}
-		name := m[1]
-		if name == "ANTHROPIC" || strings.HasSuffix(name, "_GROK") || strings.HasSuffix(name, "_CODEX") || strings.HasSuffix(name, "_OPENAI") || seen[name] {
+		rawName := m[1]
+		name := strings.TrimSuffix(rawName, "_ANTHROPIC")
+		if name == "ANTHROPIC" || name == "OPENAI" || name == "TI" || strings.HasSuffix(name, "_GROK") || strings.HasSuffix(name, "_CODEX") || strings.HasSuffix(name, "_OPENAI") || strings.HasSuffix(name, "_CHAT_COMPLETIONS") || strings.HasSuffix(name, "_RESPONSES") || seen[name] {
 			continue // skip the target variable itself and duplicates
 		}
 		seen[name] = true
 
 		p, builtIn := builtInProviders.Find(name)
 		if !builtIn {
-			p = Provider{Name: name, BaseURLVar: name + "_BASE_URL"}
+			p = Provider{Name: name, BaseURLVar: rawName + "_BASE_URL"}
 		}
 		if variableDefined(name+"_API_KEY", defined) {
 			p.AuthTokenVar = name + "_API_KEY"
 		} else if !builtIn {
-			p.AuthTokenVar = "DEFAULT_AUTH_TOKEN"
+			p.AuthTokenVar = name + "_API_KEY"
 		}
 		if defined[name+"_MODEL"] && p.ModelVar == "" {
 			p.ModelVar = name + "_MODEL"
-		}
-		if defined[name+"_GROK_BASE_URL"] {
-			p.GrokBaseURLVar = name + "_GROK_BASE_URL"
-			p.GrokAuthTokenVar = p.AuthTokenVar
-			p.GrokModelVar = p.ModelVar
-			if defined[name+"_GROK_API_KEY"] {
-				p.GrokAuthTokenVar = name + "_GROK_API_KEY"
-			}
-			if defined[name+"_GROK_MODEL"] {
-				p.GrokModelVar = name + "_GROK_MODEL"
-			}
 		}
 		providers = append(providers, applyProviderOverrides(p, defined))
 	}
@@ -321,14 +367,39 @@ func envOrDefault(name, fallback string) string {
 
 func applyProviderOverrides(p Provider, defined map[string]bool) Provider {
 	name := p.Name
+	legacyBaseURLVar := name + "_BASE_URL"
+	if p.BaseURLVar != legacyBaseURLVar && !variableDefined(p.BaseURLVar, defined) && variableDefined(legacyBaseURLVar, defined) {
+		p.BaseURLVar = legacyBaseURLVar
+	}
+	if variableDefined(name+"_CHAT_COMPLETIONS_BASE_URL", defined) {
+		p.GrokBaseURLVar = name + "_CHAT_COMPLETIONS_BASE_URL"
+		p.GrokAuthTokenVar = p.AuthTokenVar
+		p.GrokModelVar = p.ModelVar
+	} else if variableDefined(name+"_OPENAI_BASE_URL", defined) {
+		p.GrokBaseURLVar = name + "_OPENAI_BASE_URL"
+		p.GrokAuthTokenVar = p.AuthTokenVar
+		p.GrokModelVar = p.ModelVar
+	}
+	if variableDefined(name+"_GROK_BASE_URL", defined) {
+		p.GrokBaseURLVar = name + "_GROK_BASE_URL"
+		p.GrokAuthTokenVar = p.AuthTokenVar
+		p.GrokModelVar = p.ModelVar
+	}
 	if variableDefined(name+"_GROK_API_KEY", defined) {
 		p.GrokAuthTokenVar = name + "_GROK_API_KEY"
 	}
 	if variableDefined(name+"_GROK_MODEL", defined) {
 		p.GrokModelVar = name + "_GROK_MODEL"
 	}
-	if variableDefined(name+"_CODEX_BASE_URL", defined) {
+	if variableDefined(name+"_RESPONSES_BASE_URL", defined) {
+		p.CodexBaseURLVar = name + "_RESPONSES_BASE_URL"
+		p.CodexAuthTokenVar = p.AuthTokenVar
+		p.CodexModelVar = p.ModelVar
+		p.CodexUnsupportedReason = ""
+	} else if variableDefined(name+"_CODEX_BASE_URL", defined) {
 		p.CodexBaseURLVar = name + "_CODEX_BASE_URL"
+		p.CodexAuthTokenVar = p.AuthTokenVar
+		p.CodexModelVar = p.ModelVar
 		p.CodexUnsupportedReason = ""
 	}
 	if variableDefined(name+"_CODEX_API_KEY", defined) {

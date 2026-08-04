@@ -47,8 +47,11 @@ func TestApplySwitchIncludesGrokEnvironment(t *testing.T) {
 func TestApplySwitchUsesBuiltInNonSecretDefaults(t *testing.T) {
 	t.Setenv("ALI_API_KEY", "test-key")
 	t.Setenv("ALI_BASE_URL", "")
+	t.Setenv("ALI_ANTHROPIC_BASE_URL", "")
 	t.Setenv("ALI_MODEL", "")
 	t.Setenv("ALI_GROK_BASE_URL", "")
+	t.Setenv("ALI_OPENAI_BASE_URL", "")
+	t.Setenv("ALI_CHAT_COMPLETIONS_BASE_URL", "")
 	t.Setenv("ALI_GROK_MODEL", "")
 	buf := &evalBuffer{}
 	c := &cobra.Command{}

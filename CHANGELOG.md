@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-08-04 — v2.0.23
+
+- 内置 DeepSeek Anthropic provider，统一使用 `DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL` 与官方 Anthropic Base URL
+- 自定义 provider 不再静默回退到跨服务商的 `DEFAULT_AUTH_TOKEN`，缺少专属 `<NAME>_API_KEY` 时明确诊断
+- DeepSeek 明确限定为 Claude/Anthropic 客户端，不提供 Codex Responses 映射
+- provider 地址按 Anthropic、Chat Completions、Responses 协议拆分，Grok 与 Codex 分别使用 `<NAME>_CHAT_COMPLETIONS_BASE_URL`、`<NAME>_RESPONSES_BASE_URL`
+- 约定 `<NAME>_API_ORIGIN` 作为无路径根地址，仅用于组合协议 Base URL，不误注册为 provider
+- `TI_BASE_URL` 作为 ti 客户端目标变量跳过，不误注册为 `ti` provider
+- 内置 MiniMax、智谱与 OpenRouter 协议映射，并兼容旧 `<NAME>_BASE_URL`、`<NAME>_OPENAI_BASE_URL`、`<NAME>_GROK_BASE_URL`、`<NAME>_CODEX_BASE_URL` 命名
+
 ## 2026-08-03 — v2.0.22
 
 - 修复新版 Homebrew 要求第三方 tap 信任时，`siti upgrade` 忽略错误并误报“已是最新版本”的问题

@@ -8,7 +8,7 @@
 ## 项目概述
 
 `siti-cli` 是一个 macOS / Linux 个人命令行工具集，Go + Cobra 实现，通过 Homebrew tap 分发，由 goreleaser 自动发布。
-功能：AI 服务商切换、终端代理开关、端口清理、网络检测、IP 查看、日志清理、Homebrew 升级。
+功能：AI 服务商切换、终端代理开关、固定网络配置、端口清理、网络检测、IP 查看、日志清理、Homebrew 升级。
 
 ## 技术栈
 
@@ -17,7 +17,7 @@
 | 语言 | Go 1.24+ |
 | CLI 框架 | [spf13/cobra](https://github.com/spf13/cobra) |
 | 交互 UI | [charmbracelet/huh](https://github.com/charmbracelet/huh)（Charm 系，活跃） |
-| 配置发现 | 直接解析 `~/.zshenv` 和 `~/.zshrc`（不引入 toml/yaml） |
+| 配置发现 | AI provider 解析 `~/.zshenv` / `~/.zshrc`；network profile 解析 `~/.siti/network/*.yaml` |
 | 测试 | 标准库 `testing` + golden 文件 snapshot |
 | 发布 | [goreleaser](https://goreleaser.com/) — 交叉编译 + Formula 自动更新 |
 
@@ -127,7 +127,8 @@ wrapper 看到 exit 10
 │   ├── proxy.go                  # siti proxy on/off/status
 │   ├── initcmd.go                # siti init zsh|bash|fish
 │   ├── version.go                # siti version
-│   ├── ip.go / net.go / port.go / logs.go / brew.go / upgrade.go
+│   ├── net.go                    # siti net apply/reset/status/list/check
+│   ├── ip.go / port.go / logs.go / brew.go / upgrade.go
 │   └── util.go                   # 公用工具：lookupEnv / firstNonEmpty
 │
 ├── internal/
@@ -139,11 +140,15 @@ wrapper 看到 exit 10
 │   │   └── testdata/
 │   │       ├── wrapper_zsh.golden
 │   │       └── wrapper_fish.golden
-│   └── config/
-│       ├── zshrc.go              # Provider 发现、内置默认值与覆盖
-│       ├── grok.go               # provider-specific Grok 模型入口
-│       ├── codex.go              # Codex 全局 managed block + 备份/恢复
-│       ├── credentials.go        # OS Keychain / Secret Service
+│   ├── config/
+│   │   ├── zshrc.go              # Provider 发现、内置默认值与覆盖
+│   │   ├── grok.go               # provider-specific Grok 模型入口
+│   │   ├── codex.go              # Codex 全局 managed block + 备份/恢复
+│   │   ├── credentials.go        # OS Keychain / Secret Service
+│   │   └── *_test.go
+│   └── network/
+│       ├── profile.go            # YAML profile 与 active 状态
+│       ├── manager.go            # macOS networksetup 应用、恢复与验证
 │       └── *_test.go
 │
 └── completions/                  # cobra 自动生成，goreleaser 也会重新生成

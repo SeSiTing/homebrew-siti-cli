@@ -1,6 +1,6 @@
 # siti-cli
 
-个人命令行工具集：AI 服务商配置切换、代理管理、端口管理、网络检测等。
+个人命令行工具集：AI 服务商配置切换、代理管理、网络配置、端口管理等。
 macOS / Linux 通用，Go 实现。
 
 [![CI](https://github.com/SeSiTing/siti-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/SeSiTing/siti-cli/actions/workflows/ci.yml)
@@ -61,7 +61,11 @@ siti proxy status
 
 # 端口 / 网络 / 日志
 siti port kill 3000 8080    # 释放端口（支持 --dev/--db/--web 预设）
-siti net                    # ping baidu/google/github
+siti net apply blacklake-proxy  # 应用固定网络配置（macOS）
+siti net reset              # 恢复 DHCP 和自动 DNS
+siti net status             # 查看当前 siti 管理的网络配置
+siti net list               # 列出 ~/.siti/network/*.yaml
+siti net check              # ping baidu/google/github
 siti ip                     # 内网 + 公网 IP
 siti logs clean             # 清理当前目录 *.log
 
@@ -73,6 +77,34 @@ siti upgrade --bl-ops       # 升级或刷新 bl-ops
 siti upgrade --all          # 升级 self + brew + npm + bl-ops
 siti init zsh|bash|fish     # 输出 shell wrapper
 ```
+
+## 网络配置
+
+`siti net` 在 macOS 上通过 `networksetup` 管理固定 IPv4。profile 存放在 `~/.siti/network/`，例如：
+
+```yaml
+# ~/.siti/network/blacklake-proxy.yaml
+version: 1
+interface: wifi
+
+ipv4:
+  address: 172.16.40.100
+  subnet_mask: 255.255.255.0
+  gateway: 172.16.40.2
+
+dns:
+  - 172.16.40.2
+```
+
+应用和恢复网络配置需要管理员权限，命令会通过 `sudo` 请求授权：
+
+```bash
+siti net apply blacklake-proxy
+siti net status
+siti net reset
+```
+
+程序会自动查找 Wi-Fi 对应的 device 和 network service，不依赖 service 名称必须为 `Wi-Fi`。`reset` 只处理 siti 记录的 active profile，恢复 DHCP 和自动 DNS；不会恢复应用前的手动网络参数。
 
 ## AI 服务商配置
 

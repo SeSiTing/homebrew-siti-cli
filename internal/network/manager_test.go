@@ -1,0 +1,206 @@
+package network
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+type fakeRunner struct {
+	calls      []string
+	outputs    map[string]string
+	runErrors  map[string]error
+	outputErrs map[string]error
+}
+
+func (f *fakeRunner) Run(name string, args ...string) error {
+	key := commandKey(name, args...)
+	f.calls = append(f.calls, key)
+	return f.runErrors[key]
+}
+
+func (f *fakeRunner) Output(name string, args ...string) (string, error) {
+	key := commandKey(name, args...)
+	f.calls = append(f.calls, key)
+	return f.outputs[key], f.outputErrs[key]
+}
+
+func commandKey(name string, args ...string) string {
+	return strings.Join(append([]string{name}, args...), " ")
+}
+
+func newTestManager(t *testing.T) (*Manager, *fakeRunner) {
+	t.Helper()
+	dir := t.TempDir()
+	networkSetup := filepath.Join(dir, "networksetup")
+	if err := os.WriteFile(networkSetup, []byte("test"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeProfile(t, dir, "blacklake-proxy", validProfileYAML)
+
+	runner := &fakeRunner{
+		outputs: map[string]string{
+			commandKey(networkSetup, "-listallhardwareports"): `Hardware Port: Ethernet
+Device: en0
+
+Hardware Port: Wi-Fi
+Device: en7
+`,
+			commandKey(networkSetup, "-listnetworkserviceorder"): `(1) Ethernet
+(Hardware Port: Ethernet, Device: en0)
+(2) Office Wireless
+(Hardware Port: Wi-Fi, Device: en7)
+`,
+			commandKey(networkSetup, "-getinfo", "Office Wireless"): `Manual Configuration
+IP address: 172.16.40.100
+Subnet mask: 255.255.255.0
+Router: 172.16.40.2
+`,
+			commandKey(networkSetup, "-getdnsservers", "Office Wireless"): "172.16.40.2\n",
+		},
+		runErrors:  map[string]error{},
+		outputErrs: map[string]error{},
+	}
+	return &Manager{
+		ConfigDir:    dir,
+		goos:         "darwin",
+		networkSetup: networkSetup,
+		runner:       runner,
+	}, runner
+}
+
+func TestApplyUsesStaticProfileAndRenamedWiFiService(t *testing.T) {
+	manager, runner := newTestManager(t)
+	result, err := manager.Apply("blacklake-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.State.Device != "en7" || result.State.Service != "Office Wireless" {
+		t.Fatalf("state = %+v", result.State)
+	}
+
+	wantRuns := []string{
+		"sudo -v",
+		"sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.100 255.255.255.0 172.16.40.2",
+		"sudo " + manager.networkSetup + " -setdnsservers Office Wireless 172.16.40.2",
+	}
+	for _, want := range wantRuns {
+		if !contains(runner.calls, want) {
+			t.Fatalf("missing call %q in %v", want, runner.calls)
+		}
+	}
+	active, ok, err := ReadActive(manager.ConfigDir)
+	if err != nil || !ok || active.Profile != "blacklake-proxy" {
+		t.Fatalf("active = %+v, ok = %v, err = %v", active, ok, err)
+	}
+}
+
+func TestApplyIsIdempotentWhenProfileMatches(t *testing.T) {
+	manager, runner := newTestManager(t)
+	if _, err := manager.Apply("blacklake-proxy"); err != nil {
+		t.Fatal(err)
+	}
+	runner.calls = nil
+
+	result, err := manager.Apply("blacklake-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.AlreadyApplied {
+		t.Fatal("expected already applied")
+	}
+	for _, call := range runner.calls {
+		if strings.HasPrefix(call, "sudo ") {
+			t.Fatalf("unexpected privileged call: %s", call)
+		}
+	}
+}
+
+func TestResetRestoresDHCPAndAutomaticDNS(t *testing.T) {
+	manager, runner := newTestManager(t)
+	if _, err := manager.Apply("blacklake-proxy"); err != nil {
+		t.Fatal(err)
+	}
+	runner.calls = nil
+	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = "DHCP Configuration\nIP address: 172.16.40.101\n"
+	runner.outputs[commandKey(manager.networkSetup, "-getdnsservers", "Office Wireless")] = "There aren't any DNS Servers set on Office Wireless.\n"
+
+	result, err := manager.Reset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Changed {
+		t.Fatal("expected reset to change state")
+	}
+	want := []string{
+		"sudo -v",
+		"sudo " + manager.networkSetup + " -setdhcp Office Wireless Empty",
+		"sudo " + manager.networkSetup + " -setdnsservers Office Wireless Empty",
+	}
+	for _, call := range want {
+		if !contains(runner.calls, call) {
+			t.Fatalf("missing call %q in %v", call, runner.calls)
+		}
+	}
+	if _, active, err := ReadActive(manager.ConfigDir); err != nil || active {
+		t.Fatalf("active = %v, err = %v", active, err)
+	}
+}
+
+func TestApplyRollsBackWhenDNSFails(t *testing.T) {
+	manager, runner := newTestManager(t)
+	dnsCall := "sudo " + manager.networkSetup + " -setdnsservers Office Wireless 172.16.40.2"
+	runner.runErrors[dnsCall] = errors.New("dns failed")
+	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = "DHCP Configuration\n"
+	runner.outputs[commandKey(manager.networkSetup, "-getdnsservers", "Office Wireless")] = "There aren't any DNS Servers set on Office Wireless.\n"
+
+	_, err := manager.Apply("blacklake-proxy")
+	if err == nil || !strings.Contains(err.Error(), "已恢复 DHCP") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, active, readErr := ReadActive(manager.ConfigDir); readErr != nil || active {
+		t.Fatalf("active = %v, err = %v", active, readErr)
+	}
+}
+
+func TestResetWithoutActiveProfileIsNoOp(t *testing.T) {
+	manager, runner := newTestManager(t)
+	result, err := manager.Reset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Changed || len(runner.calls) != 0 {
+		t.Fatalf("result = %+v, calls = %v", result, runner.calls)
+	}
+}
+
+func TestNetworkServiceDisabled(t *testing.T) {
+	manager, runner := newTestManager(t)
+	runner.outputs[commandKey(manager.networkSetup, "-listnetworkserviceorder")] = `(*) Office Wireless
+(Hardware Port: Wi-Fi, Device: en7)
+`
+	_, err := manager.Apply("blacklake-proxy")
+	if err == nil || !strings.Contains(err.Error(), "已被禁用") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestParseNetworkInfo(t *testing.T) {
+	got := parseNetworkInfo("Manual Configuration\nIP address: 10.0.0.2\nSubnet mask: 255.255.255.0\nRouter: 10.0.0.1\n")
+	want := LiveStatus{Mode: "Manual Configuration", Address: "10.0.0.2", SubnetMask: "255.255.255.0", Gateway: "10.0.0.1"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}
+
+func contains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}

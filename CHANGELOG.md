@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-08-06 — v2.0.25
+
+- 新增 `siti net apply <profile>`、`reset`、`status`、`list`，通过 `~/.siti/network/*.yaml` 管理 macOS 固定 IPv4、网关和 DNS
+- 自动解析 Wi-Fi device 对应的真实 network service，支持 service 重命名；应用和恢复后读回验证，失败时尝试回滚
+- 原 `siti net` ping 检测迁移为 `siti net check`
+
 ## 2026-08-06 — v2.0.24
 
 - `siti upgrade` 新增 `--bl-ops` 目标，并在 `--all` 中纳入 `bl-ops`；优先识别 uv editable 安装，从本地源码刷新

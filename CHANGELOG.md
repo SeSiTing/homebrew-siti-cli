@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-08-10 — v2.0.26
+
+- 新增 `siti proxy off --all`，在关闭当前终端代理的同时显式清理 Git 全局及 URL 级 HTTP/HTTPS 代理
+- `siti proxy status` 分层展示终端环境、Git 全局配置和只读的 macOS 系统代理状态
+- `siti upgrade` 在 Homebrew/Git 更新前检测失效的本地代理端口，失败时给出清理命令且不自动修改配置
+
 ## 2026-08-06 — v2.0.25
 
 - 新增 `siti net apply <profile>`、`reset`、`status`、`list`，通过 `~/.siti/network/*.yaml` 管理 macOS 固定 IPv4、网关和 DNS

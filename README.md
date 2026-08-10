@@ -57,7 +57,8 @@ siti ai clear --client codex            # 恢复 Codex 原有全局配置
 
 # 终端代理 (127.0.0.1:7890)
 siti proxy on / off
-siti proxy status
+siti proxy off --all          # 关闭终端代理并清理 Git 全局代理
+siti proxy status             # 查看终端、Git 和 macOS 系统代理
 
 # 端口 / 网络 / 日志
 siti port kill 3000 8080    # 释放端口（支持 --dev/--db/--web 预设）
@@ -77,6 +78,8 @@ siti upgrade --bl-ops       # 升级或刷新 bl-ops
 siti upgrade --all          # 升级 self + brew + npm + bl-ops
 siti init zsh|bash|fish     # 输出 shell wrapper
 ```
+
+`siti upgrade` 会在运行 Homebrew 或 Git 更新前检查本地代理端口。若 Git 或终端代理指向未监听的 `localhost` / `127.0.0.1`，升级会在修改任何配置前停止，并提示运行 `siti proxy off --all`；不会自动删除代理配置。
 
 ## 网络配置
 

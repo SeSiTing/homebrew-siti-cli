@@ -1,0 +1,177 @@
+package cmd
+
+import (
+	"context"
+	"net"
+	"os/exec"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/spf13/cobra"
+)
+
+func TestUnsetTerminalProxy(t *testing.T) {
+	buf := &evalBuffer{}
+	c := &cobra.Command{}
+	c.SetContext(context.WithValue(context.Background(), evalKey{}, buf))
+
+	unsetTerminalProxy(c)
+
+	want := []string{
+		"unset http_proxy HTTP_PROXY;",
+		"unset https_proxy HTTPS_PROXY;",
+		"unset all_proxy ALL_PROXY;",
+	}
+	if !reflect.DeepEqual(buf.lines, want) {
+		t.Fatalf("eval lines:\n got: %#v\nwant: %#v", buf.lines, want)
+	}
+}
+
+func TestCleanGlobalGitProxies(t *testing.T) {
+	configFile := t.TempDir() + "/gitconfig"
+	t.Setenv("GIT_CONFIG_GLOBAL", configFile)
+
+	setGitConfig(t, "http.proxy", "http://127.0.0.1:7890")
+	setGitConfig(t, "https.proxy", "http://127.0.0.1:7890")
+	setGitConfig(t, "http.https://github.com.proxy", "http://127.0.0.1:7891")
+	setGitConfig(t, "http.sslVerify", "false")
+
+	entries, err := globalGitProxies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("globalGitProxies() returned %d entries, want 3: %#v", len(entries), entries)
+	}
+
+	count, err := cleanGlobalGitProxies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 3 {
+		t.Fatalf("cleanGlobalGitProxies() = %d, want 3", count)
+	}
+
+	entries, err = globalGitProxies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("Git proxies remain after clean: %#v", entries)
+	}
+
+	out, err := exec.Command("git", "config", "--global", "--get", "http.sslVerify").Output()
+	if err != nil || string(out) != "false\n" {
+		t.Fatalf("unrelated Git config changed: value=%q err=%v", out, err)
+	}
+}
+
+func TestParseScutilProxies(t *testing.T) {
+	proxies := parseScutilProxies(`
+<dictionary> {
+  HTTPEnable : 1
+  HTTPProxy : 127.0.0.1
+  HTTPPort : 7890
+  HTTPSEnable : 0
+  SOCKSEnable : 1
+  SOCKSProxy : localhost
+  SOCKSPort : 7891
+}
+`)
+	want := map[string]string{
+		"HTTP":  "http://127.0.0.1:7890",
+		"HTTPS": "off",
+		"SOCKS": "socks5://localhost:7891",
+	}
+	if !reflect.DeepEqual(proxies, want) {
+		t.Fatalf("parseScutilProxies() = %#v, want %#v", proxies, want)
+	}
+}
+
+func TestLocalProxyEndpoint(t *testing.T) {
+	tests := []struct {
+		value string
+		want  string
+		ok    bool
+	}{
+		{"http://127.0.0.1:7890", "127.0.0.1:7890", true},
+		{"socks5://localhost:7891", "localhost:7891", true},
+		{"http://[::1]:7892", "[::1]:7892", true},
+		{"http://proxy.example.com:8080", "", false},
+		{"http://127.0.0.1", "", false},
+	}
+	for _, tt := range tests {
+		got, ok := localProxyEndpoint(tt.value)
+		if got != tt.want || ok != tt.ok {
+			t.Errorf("localProxyEndpoint(%q) = %q, %v; want %q, %v", tt.value, got, ok, tt.want, tt.ok)
+		}
+	}
+}
+
+func TestRedactProxyURL(t *testing.T) {
+	got := redactProxyURL("http://user:secret@127.0.0.1:7890")
+	if strings.Contains(got, "user") || strings.Contains(got, "secret") {
+		t.Fatalf("proxy credentials were not redacted: %s", got)
+	}
+	if !strings.Contains(got, "127.0.0.1:7890") {
+		t.Fatalf("proxy endpoint missing after redaction: %s", got)
+	}
+}
+
+func TestPreflightUpgradeProxy(t *testing.T) {
+	clearProxyEnvironment(t)
+	configFile := t.TempDir() + "/gitconfig"
+	t.Setenv("GIT_CONFIG_GLOBAL", configFile)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	workingProxy := "http://" + listener.Addr().String()
+	setGitConfig(t, "https.proxy", workingProxy)
+	if err := preflightUpgradeProxy(); err != nil {
+		listener.Close()
+		t.Fatalf("working local proxy rejected: %v", err)
+	}
+
+	deadAddress := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	setGitConfig(t, "https.proxy", "http://"+deadAddress)
+
+	err = preflightUpgradeProxy()
+	if err == nil {
+		t.Fatal("dead local proxy was not rejected")
+	}
+	for _, want := range []string{"Git global https.proxy", deadAddress, "siti proxy off --all", "未修改任何代理配置"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("preflight error %q does not contain %q", err, want)
+		}
+	}
+}
+
+func TestPreflightUpgradeProxyIgnoresUnrelatedURLScope(t *testing.T) {
+	clearProxyEnvironment(t)
+	t.Setenv("GIT_CONFIG_GLOBAL", t.TempDir()+"/gitconfig")
+	setGitConfig(t, "http.https://internal.example.com.proxy", "http://127.0.0.1:1")
+
+	if err := preflightUpgradeProxy(); err != nil {
+		t.Fatalf("unrelated URL-scoped proxy blocked upgrade: %v", err)
+	}
+}
+
+func clearProxyEnvironment(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{"http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"} {
+		t.Setenv(key, "")
+	}
+}
+
+func setGitConfig(t *testing.T, key, value string) {
+	t.Helper()
+	if out, err := exec.Command("git", "config", "--global", key, value).CombinedOutput(); err != nil {
+		t.Fatalf("git config %s: %v: %s", key, err, out)
+	}
+}

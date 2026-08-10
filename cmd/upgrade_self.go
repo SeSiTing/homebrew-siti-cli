@@ -33,6 +33,9 @@ func sectionSelf(cmd *cobra.Command) (bool, error) {
 		if _, err := exec.LookPath("brew"); err != nil {
 			return false, fmt.Errorf("未找到 Homebrew: %w", err)
 		}
+		if err := preflightUpgradeProxy(); err != nil {
+			return false, err
+		}
 		if err := runCmd("brew", "update"); err != nil {
 			return false, fmt.Errorf("brew update 失败: %w", err)
 		}
@@ -54,6 +57,9 @@ func sectionSelf(cmd *cobra.Command) (bool, error) {
 		dir := os.ExpandEnv("$HOME/.siti-cli")
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			return false, fmt.Errorf("未找到安装目录: %s", dir)
+		}
+		if err := preflightUpgradeProxy(); err != nil {
+			return false, err
 		}
 		fmt.Println("→ git pull")
 		c := exec.Command("git", "pull", "--rebase", "--autostash", "origin", "main")

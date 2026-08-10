@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-10 — v2.0.27
+
+- 用独立、对称的 `siti proxy git on/off` 替换 `proxy off --all`，将当前终端代理与持久 Git 全局代理明确分离
+- `proxy status` 和 `siti upgrade` 按代理来源分别提示 `proxy off` 或 `proxy git off`
+
 ## 2026-08-10 — v2.0.26
 
 - 新增 `siti proxy off --all`，在关闭当前终端代理的同时显式清理 Git 全局及 URL 级 HTTP/HTTPS 代理

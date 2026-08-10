@@ -124,7 +124,7 @@ wrapper 看到 exit 10
 ├── cmd/                          # 命令实现，每个文件一个 namespace
 │   ├── root.go                   # rootCmd + Execute() + Eval(c, lines...)
 │   ├── ai.go / ai_*.go           # AI 客户端切换、状态、凭证与诊断
-│   ├── proxy.go                  # siti proxy on/off/status + upgrade 代理预检
+│   ├── proxy.go                  # siti proxy on/off/git on|off/status + upgrade 代理预检
 │   ├── initcmd.go                # siti init zsh|bash|fish
 │   ├── version.go                # siti version
 │   ├── net.go                    # siti net apply/reset/status/list/check

@@ -62,22 +62,40 @@ var proxyOffCmd = &cobra.Command{
 	Short: "关闭终端代理",
 	Args:  cobra.NoArgs,
 	RunE: func(c *cobra.Command, args []string) error {
-		all, err := c.Flags().GetBool("all")
-		if err != nil {
-			return err
-		}
-
-		if all {
-			count, err := cleanGlobalGitProxies()
-			if err != nil {
-				return fmt.Errorf("清理 Git 全局代理: %w", err)
-			}
-			printErr("✓ 终端代理已关闭")
-			printErr("✓ Git 全局代理已清理（%d 项）", count)
-		} else {
-			printErr("✓ 终端代理已关闭")
-		}
+		printErr("✓ 终端代理已关闭")
 		unsetTerminalProxy(c)
+		return nil
+	},
+}
+
+var proxyGitCmd = &cobra.Command{
+	Use:   "git",
+	Short: "管理 Git 全局代理配置",
+}
+
+var proxyGitOnCmd = &cobra.Command{
+	Use:   "on",
+	Short: "开启 Git 全局代理",
+	Args:  cobra.NoArgs,
+	RunE: func(c *cobra.Command, args []string) error {
+		if err := enableGlobalGitProxy(); err != nil {
+			return fmt.Errorf("开启 Git 全局代理: %w", err)
+		}
+		printErr("✓ Git 全局代理已开启 (%s:%s)", proxyHost, proxyPort)
+		return nil
+	},
+}
+
+var proxyGitOffCmd = &cobra.Command{
+	Use:   "off",
+	Short: "关闭 Git 全局代理",
+	Args:  cobra.NoArgs,
+	RunE: func(c *cobra.Command, args []string) error {
+		count, err := disableGlobalGitProxy()
+		if err != nil {
+			return fmt.Errorf("关闭 Git 全局代理: %w", err)
+		}
+		printErr("✓ Git 全局代理已关闭（清理 %d 项）", count)
 		return nil
 	},
 }
@@ -117,6 +135,8 @@ var proxyStatusCmd = &cobra.Command{
 			return fmt.Errorf("读取 Git 全局代理: %w", err)
 		}
 
+		managedGitActive := false
+		unmanagedGitActive := false
 		fmt.Println()
 		fmt.Println("Git 全局配置:")
 		if len(entries) == 0 {
@@ -124,6 +144,11 @@ var proxyStatusCmd = &cobra.Command{
 		} else {
 			for _, entry := range entries {
 				fmt.Printf("  %s: %s\n", entry.key, redactProxyURL(entry.value))
+				if isManagedGitProxyKey(entry.key) {
+					managedGitActive = true
+				} else {
+					unmanagedGitActive = true
+				}
 			}
 		}
 
@@ -151,11 +176,17 @@ var proxyStatusCmd = &cobra.Command{
 		if !systemStatusKnown {
 			fmt.Println("! 代理状态未完整确认")
 		}
-		if terminalActive || len(entries) > 0 {
-			fmt.Println("→ 关闭终端和 Git 代理: siti proxy off --all")
+		if terminalActive {
+			fmt.Println("→ 关闭当前终端代理: siti proxy off")
+		}
+		if managedGitActive {
+			fmt.Println("→ 关闭 Git 全局代理: siti proxy git off")
+		}
+		if unmanagedGitActive {
+			fmt.Println("! URL 级 Git 代理仅展示，不会被 siti proxy git off 修改")
 		}
 		if systemActive {
-			fmt.Println("! macOS 系统代理仅展示，不会被 siti proxy off --all 修改")
+			fmt.Println("! macOS 系统代理仅展示，不会被 siti proxy off 或 proxy git off 修改")
 		}
 		return nil
 	},
@@ -195,7 +226,18 @@ func globalGitProxies() ([]gitProxyEntry, error) {
 	return entries, nil
 }
 
-func cleanGlobalGitProxies() (int, error) {
+func enableGlobalGitProxy() error {
+	value := fmt.Sprintf("http://%s:%s", proxyHost, proxyPort)
+	for _, key := range []string{"http.proxy", "https.proxy"} {
+		cmd := exec.Command("git", "config", "--global", key, value)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return commandOutputError(err, out)
+		}
+	}
+	return nil
+}
+
+func disableGlobalGitProxy() (int, error) {
 	entries, err := globalGitProxies()
 	if err != nil {
 		return 0, err
@@ -203,6 +245,9 @@ func cleanGlobalGitProxies() (int, error) {
 
 	keys := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
+		if !isManagedGitProxyKey(entry.key) {
+			continue
+		}
 		if _, ok := keys[entry.key]; ok {
 			continue
 		}
@@ -212,7 +257,18 @@ func cleanGlobalGitProxies() (int, error) {
 			return 0, commandOutputError(err, out)
 		}
 	}
-	return len(entries), nil
+	count := 0
+	for _, entry := range entries {
+		if isManagedGitProxyKey(entry.key) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func isManagedGitProxyKey(key string) bool {
+	key = strings.ToLower(key)
+	return key == "http.proxy" || key == "https.proxy"
 }
 
 func commandOutputError(err error, out []byte) error {
@@ -303,10 +359,21 @@ func preflightUpgradeProxy() error {
 	}
 
 	var lines []string
+	terminalStale := false
+	gitStale := false
 	for _, reference := range stale {
 		lines = append(lines, fmt.Sprintf("  %s: %s（%s 没有进程监听）", reference.source, redactProxyURL(reference.value), reference.endpoint))
+		terminalStale = terminalStale || strings.HasPrefix(reference.source, "终端 ")
+		gitStale = gitStale || strings.HasPrefix(reference.source, "Git global ")
 	}
-	return fmt.Errorf("本地代理不可用:\n%s\n\n升级尚未开始，未修改任何代理配置。\n\n→ 清理代理:\n  siti proxy off --all", strings.Join(lines, "\n"))
+	var remedies []string
+	if terminalStale {
+		remedies = append(remedies, "  siti proxy off")
+	}
+	if gitStale {
+		remedies = append(remedies, "  siti proxy git off")
+	}
+	return fmt.Errorf("本地代理不可用:\n%s\n\n升级尚未开始，未修改任何代理配置。\n\n→ 清理对应代理:\n%s", strings.Join(lines, "\n"), strings.Join(remedies, "\n"))
 }
 
 func configuredLocalProxyReferences() ([]proxyReference, error) {
@@ -331,7 +398,7 @@ func configuredLocalProxyReferences() ([]proxyReference, error) {
 		return nil, err
 	}
 	for _, entry := range entries {
-		if !gitProxyAppliesToGitHub(entry.key) {
+		if !isManagedGitProxyKey(entry.key) {
 			continue
 		}
 		if endpoint, ok := localProxyEndpoint(entry.value); ok {
@@ -339,15 +406,6 @@ func configuredLocalProxyReferences() ([]proxyReference, error) {
 		}
 	}
 	return references, nil
-}
-
-func gitProxyAppliesToGitHub(key string) bool {
-	key = strings.ToLower(key)
-	if key == "http.proxy" || key == "https.proxy" {
-		return true
-	}
-	remainder, ok := strings.CutPrefix(key, "http.https://github.com")
-	return ok && (remainder == ".proxy" || strings.HasPrefix(remainder, "/"))
 }
 
 func localProxyEndpoint(value string) (string, bool) {
@@ -371,7 +429,7 @@ func localProxyEndpoint(value string) (string, bool) {
 }
 
 func init() {
-	proxyOffCmd.Flags().Bool("all", false, "同时清理 Git 全局 HTTP/HTTPS 代理")
-	proxyCmd.AddCommand(proxyOnCmd, proxyOffCmd, proxyStatusCmd)
+	proxyGitCmd.AddCommand(proxyGitOnCmd, proxyGitOffCmd)
+	proxyCmd.AddCommand(proxyOnCmd, proxyOffCmd, proxyStatusCmd, proxyGitCmd)
 	rootCmd.AddCommand(proxyCmd)
 }

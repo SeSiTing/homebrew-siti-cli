@@ -28,15 +28,16 @@ func TestUnsetTerminalProxy(t *testing.T) {
 	}
 }
 
-func TestCleanGlobalGitProxies(t *testing.T) {
+func TestEnableAndDisableGlobalGitProxy(t *testing.T) {
 	configFile := t.TempDir() + "/gitconfig"
 	t.Setenv("GIT_CONFIG_GLOBAL", configFile)
 
-	setGitConfig(t, "http.proxy", "http://127.0.0.1:7890")
-	setGitConfig(t, "https.proxy", "http://127.0.0.1:7890")
 	setGitConfig(t, "http.https://github.com.proxy", "http://127.0.0.1:7891")
 	setGitConfig(t, "http.sslVerify", "false")
 
+	if err := enableGlobalGitProxy(); err != nil {
+		t.Fatal(err)
+	}
 	entries, err := globalGitProxies()
 	if err != nil {
 		t.Fatal(err)
@@ -44,21 +45,27 @@ func TestCleanGlobalGitProxies(t *testing.T) {
 	if len(entries) != 3 {
 		t.Fatalf("globalGitProxies() returned %d entries, want 3: %#v", len(entries), entries)
 	}
+	for _, key := range []string{"http.proxy", "https.proxy"} {
+		out, err := exec.Command("git", "config", "--global", "--get", key).Output()
+		if err != nil || string(out) != "http://127.0.0.1:7890\n" {
+			t.Fatalf("%s not enabled correctly: value=%q err=%v", key, out, err)
+		}
+	}
 
-	count, err := cleanGlobalGitProxies()
+	count, err := disableGlobalGitProxy()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 3 {
-		t.Fatalf("cleanGlobalGitProxies() = %d, want 3", count)
+	if count != 2 {
+		t.Fatalf("disableGlobalGitProxy() = %d, want 2", count)
 	}
 
 	entries, err = globalGitProxies()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 0 {
-		t.Fatalf("Git proxies remain after clean: %#v", entries)
+	if len(entries) != 1 || entries[0].key != "http.https://github.com.proxy" {
+		t.Fatalf("unexpected Git proxies after off: %#v", entries)
 	}
 
 	out, err := exec.Command("git", "config", "--global", "--get", "http.sslVerify").Output()
@@ -145,20 +152,43 @@ func TestPreflightUpgradeProxy(t *testing.T) {
 	if err == nil {
 		t.Fatal("dead local proxy was not rejected")
 	}
-	for _, want := range []string{"Git global https.proxy", deadAddress, "siti proxy off --all", "未修改任何代理配置"} {
+	for _, want := range []string{"Git global https.proxy", deadAddress, "siti proxy git off", "未修改任何代理配置"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("preflight error %q does not contain %q", err, want)
 		}
 	}
 }
 
-func TestPreflightUpgradeProxyIgnoresUnrelatedURLScope(t *testing.T) {
+func TestPreflightUpgradeProxyIgnoresURLScope(t *testing.T) {
 	clearProxyEnvironment(t)
 	t.Setenv("GIT_CONFIG_GLOBAL", t.TempDir()+"/gitconfig")
-	setGitConfig(t, "http.https://internal.example.com.proxy", "http://127.0.0.1:1")
+	setGitConfig(t, "http.https://github.com.proxy", "http://127.0.0.1:1")
 
 	if err := preflightUpgradeProxy(); err != nil {
-		t.Fatalf("unrelated URL-scoped proxy blocked upgrade: %v", err)
+		t.Fatalf("URL-scoped proxy blocked upgrade: %v", err)
+	}
+}
+
+func TestPreflightUpgradeProxySuggestsTerminalOff(t *testing.T) {
+	clearProxyEnvironment(t)
+	t.Setenv("GIT_CONFIG_GLOBAL", t.TempDir()+"/gitconfig")
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadAddress := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HTTPS_PROXY", "http://"+deadAddress)
+
+	err = preflightUpgradeProxy()
+	if err == nil || !strings.Contains(err.Error(), "siti proxy off") {
+		t.Fatalf("terminal proxy remediation missing: %v", err)
+	}
+	if strings.Contains(err.Error(), "siti proxy git off") {
+		t.Fatalf("unexpected Git remediation for terminal-only proxy: %v", err)
 	}
 }
 

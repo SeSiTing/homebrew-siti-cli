@@ -61,7 +61,20 @@ var netResetCmd = &cobra.Command{
 			fmt.Fprintln(cmd.OutOrStdout(), "✓ 当前没有 siti 管理的网络配置")
 			return nil
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "✓ 已恢复 DHCP 和自动 DNS: %s (%s)\n", result.State.Service, result.State.Device)
+		fmt.Fprintln(cmd.OutOrStdout(), "✓ 已恢复自动网络配置")
+		fmt.Fprintf(cmd.OutOrStdout(), "  service: %s (%s)\n", result.Service, result.State.Device)
+		fmt.Fprintln(cmd.OutOrStdout(), "  IPv4: DHCP")
+		if result.Live.Address != "" {
+			address := result.Live.Address
+			if result.Live.SubnetMask != "" {
+				address += "/" + result.Live.SubnetMask
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "  address: %s\n", address)
+		}
+		if result.Live.Gateway != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  gateway: %s\n", result.Live.Gateway)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "  DNS: Automatic")
 		return nil
 	},
 }

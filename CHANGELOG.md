@@ -5,6 +5,10 @@
 
 ---
 
+## 2026-08-11 — v2.0.28
+
+- 优化 `siti net reset` 输出，分行展示实际读回的 network service、DHCP 地址、网关和自动 DNS 状态
+
 ## 2026-08-10 — v2.0.27
 
 - 用独立、对称的 `siti proxy git on/off` 替换 `proxy off --all`，将当前终端代理与持久 Git 全局代理明确分离

@@ -125,7 +125,11 @@ func TestResetRestoresDHCPAndAutomaticDNS(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner.calls = nil
-	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = "DHCP Configuration\nIP address: 172.16.40.101\n"
+	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = `DHCP Configuration
+IP address: 172.16.40.101
+Subnet mask: 255.255.255.0
+Router: 172.16.40.2
+`
 	runner.outputs[commandKey(manager.networkSetup, "-getdnsservers", "Office Wireless")] = "There aren't any DNS Servers set on Office Wireless.\n"
 
 	result, err := manager.Reset()
@@ -134,6 +138,18 @@ func TestResetRestoresDHCPAndAutomaticDNS(t *testing.T) {
 	}
 	if !result.Changed {
 		t.Fatal("expected reset to change state")
+	}
+	if result.Service != "Office Wireless" {
+		t.Fatalf("service = %q", result.Service)
+	}
+	wantLive := LiveStatus{
+		Mode:       "DHCP Configuration",
+		Address:    "172.16.40.101",
+		SubnetMask: "255.255.255.0",
+		Gateway:    "172.16.40.2",
+	}
+	if !reflect.DeepEqual(result.Live, wantLive) {
+		t.Fatalf("live = %+v, want %+v", result.Live, wantLive)
 	}
 	want := []string{
 		"sudo -v",

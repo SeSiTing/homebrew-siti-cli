@@ -51,6 +51,8 @@ type ApplyResult struct {
 
 type ResetResult struct {
 	State   ActiveState
+	Service string
+	Live    LiveStatus
 	Changed bool
 }
 
@@ -118,7 +120,7 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		return ApplyResult{}, fmt.Errorf("获取管理员权限: %w", err)
 	}
 	if hasActive && active.Profile != name {
-		if err := m.resetState(active); err != nil {
+		if _, _, err := m.resetState(active); err != nil {
 			return ApplyResult{}, fmt.Errorf("重置当前 profile %q: %w", active.Profile, err)
 		}
 		if err := RemoveActive(m.ConfigDir); err != nil {
@@ -130,7 +132,7 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		return ApplyResult{}, err
 	}
 	if err := m.runNetworkSetup("-setmanual", service, profile.IPv4.Address, profile.IPv4.SubnetMask, profile.IPv4.Gateway); err != nil {
-		rollbackErr := m.resetService(service)
+		_, rollbackErr := m.resetService(service)
 		if rollbackErr == nil {
 			_ = RemoveActive(m.ConfigDir)
 			return ApplyResult{}, fmt.Errorf("设置固定 IPv4: %w（已恢复 DHCP 和自动 DNS）", err)
@@ -139,7 +141,7 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	}
 	dnsArgs := append([]string{"-setdnsservers", service}, profile.DNS...)
 	if err := m.runNetworkSetup(dnsArgs...); err != nil {
-		rollbackErr := m.resetService(service)
+		_, rollbackErr := m.resetService(service)
 		if rollbackErr == nil {
 			_ = RemoveActive(m.ConfigDir)
 			return ApplyResult{}, fmt.Errorf("设置 DNS: %w（已恢复 DHCP 和自动 DNS）", err)
@@ -151,7 +153,7 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		return ApplyResult{}, fmt.Errorf("读回网络配置: %w", err)
 	}
 	if !matchesProfile(live, profile) {
-		rollbackErr := m.resetService(service)
+		_, rollbackErr := m.resetService(service)
 		if rollbackErr == nil {
 			_ = RemoveActive(m.ConfigDir)
 			return ApplyResult{}, fmt.Errorf("网络配置读回结果与 profile 不一致（已恢复 DHCP 和自动 DNS）")
@@ -175,13 +177,14 @@ func (m *Manager) Reset() (ResetResult, error) {
 	if err := m.runner.Run("sudo", "-v"); err != nil {
 		return ResetResult{}, fmt.Errorf("获取管理员权限: %w", err)
 	}
-	if err := m.resetState(state); err != nil {
+	service, live, err := m.resetState(state)
+	if err != nil {
 		return ResetResult{}, err
 	}
 	if err := RemoveActive(m.ConfigDir); err != nil {
 		return ResetResult{}, err
 	}
-	return ResetResult{State: state, Changed: true}, nil
+	return ResetResult{State: state, Service: service, Live: live, Changed: true}, nil
 }
 
 func (m *Manager) Status() (StatusResult, error) {
@@ -244,29 +247,30 @@ func (m *Manager) serviceForDevice(device string) (string, error) {
 	return service, nil
 }
 
-func (m *Manager) resetState(state ActiveState) error {
+func (m *Manager) resetState(state ActiveState) (string, LiveStatus, error) {
 	service, err := m.serviceForDevice(state.Device)
 	if err != nil {
-		return err
+		return "", LiveStatus{}, err
 	}
-	return m.resetService(service)
+	live, err := m.resetService(service)
+	return service, live, err
 }
 
-func (m *Manager) resetService(service string) error {
+func (m *Manager) resetService(service string) (LiveStatus, error) {
 	if err := m.runNetworkSetup("-setdhcp", service, "Empty"); err != nil {
-		return fmt.Errorf("恢复 DHCP: %w", err)
+		return LiveStatus{}, fmt.Errorf("恢复 DHCP: %w", err)
 	}
 	if err := m.runNetworkSetup("-setdnsservers", service, "Empty"); err != nil {
-		return fmt.Errorf("恢复自动 DNS: %w", err)
+		return LiveStatus{}, fmt.Errorf("恢复自动 DNS: %w", err)
 	}
 	live, err := m.readLive(service)
 	if err != nil {
-		return fmt.Errorf("读回网络配置: %w", err)
+		return LiveStatus{}, fmt.Errorf("读回网络配置: %w", err)
 	}
 	if live.Mode != "DHCP Configuration" || len(live.DNS) != 0 {
-		return fmt.Errorf("恢复后的网络配置不是 DHCP 和自动 DNS")
+		return LiveStatus{}, fmt.Errorf("恢复后的网络配置不是 DHCP 和自动 DNS")
 	}
-	return nil
+	return live, nil
 }
 
 func (m *Manager) runNetworkSetup(args ...string) error {

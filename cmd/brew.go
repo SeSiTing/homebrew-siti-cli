@@ -101,7 +101,7 @@ var brewUpCmd = &cobra.Command{
 
 		// Step 1: brew update
 		fmt.Println("\n→ 更新 Homebrew 自身")
-		if err := runCmd("brew", "update"); err != nil {
+		if err := runBrewUpdate(); err != nil {
 			fmt.Fprintf(os.Stderr, "✗ brew update 失败: %v\n", err)
 			return err
 		}

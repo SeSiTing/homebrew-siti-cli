@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-11 — v2.0.30
+
+- `siti upgrade` 与 `siti brew up` 在 `brew update` 遇到 DNS、连接超时、TLS syscall、HTTP 429/5xx 等明确瞬时网络错误时自动重试一次
+- 保持有界且分类的重试策略，证书校验、权限和 tap 信任等永久性错误立即失败
+
 ## 2026-08-11 — v2.0.29
 
 - 新增 `siti tunnel up/down/status/list`，通过 `~/.siti/tunnels/*.yaml` 管理后台 SSH 本地端口转发

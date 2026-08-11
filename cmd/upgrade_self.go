@@ -36,7 +36,7 @@ func sectionSelf(cmd *cobra.Command) (bool, error) {
 		if err := preflightUpgradeProxy(); err != nil {
 			return false, err
 		}
-		if err := runCmd("brew", "update"); err != nil {
+		if err := runBrewUpdate(); err != nil {
 			return false, fmt.Errorf("brew update 失败: %w", err)
 		}
 		outdated, err := brewFormulaOutdated(sitiBrewFormula)

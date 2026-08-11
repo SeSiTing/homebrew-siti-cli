@@ -85,6 +85,8 @@ siti init zsh|bash|fish     # 输出 shell wrapper
 
 `siti upgrade` 会在运行 Homebrew 或 Git 更新前检查本地代理端口。若 Git 或终端代理指向未监听的 `localhost` / `127.0.0.1`，升级会在修改任何配置前停止，并根据来源提示运行 `siti proxy off` 或 `siti proxy git off`；不会自动删除代理配置。
 
+`siti upgrade` 和 `siti brew up` 遇到 DNS、连接超时、TLS syscall、HTTP 429/5xx 等明确的临时网络错误时，会等待 1 秒后自动重试一次 `brew update`。证书校验、权限、tap 信任和其他永久性错误不会重试。
+
 ## 网络配置
 
 `siti net` 在 macOS 上通过 `networksetup` 管理固定 IPv4。profile 存放在 `~/.siti/network/`，例如：

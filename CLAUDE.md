@@ -104,6 +104,7 @@ wrapper 看到 exit 10
 - wrapper **不 grep 过滤** stdout——Go 端是单一真源
 - `os.Exit` 在全项目**只出现一次**（`main.go`）
 - stderr 永远是给人看的，stdout 在 exit 10 时永远是 shell 代码
+- `brew update` 只对明确的瞬时网络错误重试一次；证书、权限和 tap 信任错误不得重试
 
 ### 目录结构
 

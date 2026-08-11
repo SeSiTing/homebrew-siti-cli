@@ -49,7 +49,7 @@ func TestReadProfile(t *testing.T) {
 }
 
 func TestReadBuiltinProfileUsesSSHHostAlias(t *testing.T) {
-	profile, err := ReadProfile(t.TempDir(), "mac-studio")
+	profile, err := ReadProfile(t.TempDir(), "studio")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,9 +64,9 @@ func TestReadBuiltinProfileUsesSSHHostAlias(t *testing.T) {
 func TestUserProfileOverridesBuiltin(t *testing.T) {
 	dir := t.TempDir()
 	custom := strings.Replace(validProfileYAML, "target: mac-studio", "target: studio-vpn", 1)
-	writeProfile(t, dir, "mac-studio", custom)
+	writeProfile(t, dir, "studio", custom)
 
-	profile, err := ReadProfile(dir, "mac-studio")
+	profile, err := ReadProfile(dir, "studio")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestListProfilesSorted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"mac-studio", "studio-a", "studio-z"}
+	want := []string{"studio", "studio-a", "studio-z"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("profiles = %v, want %v", got, want)
 	}

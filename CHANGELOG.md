@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-11 — v2.0.32
+
+- 将内置 tunnel 名称简化为 `studio`，保持底层 SSH target 为 `mac-studio`，直接运行 `siti tunnel up studio`
+- 同名用户覆盖路径调整为 `~/.siti/tunnels/studio.yaml`
+
 ## 2026-08-11 — v2.0.31
 
 - 内置与 SSH Host alias 同名的 `mac-studio` tunnel preset，升级后可直接运行 `siti tunnel up mac-studio`

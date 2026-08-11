@@ -22,7 +22,7 @@ const profileVersion = 1
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
 var builtinProfiles = map[string]Profile{
-	"mac-studio": {
+	"studio": {
 		Version: 1,
 		Target:  "mac-studio",
 		Forwards: []Forward{

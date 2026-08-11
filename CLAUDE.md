@@ -105,7 +105,7 @@ wrapper 看到 exit 10
 - `os.Exit` 在全项目**只出现一次**（`main.go`）
 - stderr 永远是给人看的，stdout 在 exit 10 时永远是 shell 代码
 - `brew update` 只对明确的瞬时网络错误重试一次；证书、权限和 tap 信任错误不得重试
-- tunnel 名称与 SSH Host alias 对齐；内置 `mac-studio` preset 可被 `~/.siti/tunnels/mac-studio.yaml` 同名覆盖
+- 内置 `studio` tunnel preset 使用 SSH Host alias `mac-studio`，可被 `~/.siti/tunnels/studio.yaml` 同名覆盖
 
 ### 目录结构
 

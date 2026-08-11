@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-08-11 — v2.0.29
+
+- 新增 `siti tunnel up/down/status/list`，通过 `~/.siti/tunnels/*.yaml` 管理后台 SSH 本地端口转发
+- 使用 profile 专属 OpenSSH ControlSocket 实现幂等启停，启动前检查本地端口冲突，状态输出同时展示转发与 TCP 可达性
+- 本地监听强制绑定 `127.0.0.1`，复用现有 SSH 配置和认证，不在 profile 中保存密码或私钥
+
 ## 2026-08-11 — v2.0.28
 
 - 优化 `siti net reset` 输出，分行展示实际读回的 network service、DHCP 地址、网关和自动 DNS 状态

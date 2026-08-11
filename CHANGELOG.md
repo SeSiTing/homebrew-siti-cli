@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-11 — v2.0.31
+
+- 内置与 SSH Host alias 同名的 `mac-studio` tunnel preset，升级后可直接运行 `siti tunnel up mac-studio`
+- 保留 `~/.siti/tunnels/mac-studio.yaml` 同名用户覆盖，源码不写入 IP、用户名或密钥路径
+
 ## 2026-08-11 — v2.0.30
 
 - `siti upgrade` 与 `siti brew up` 在 `brew update` 遇到 DNS、连接超时、TLS syscall、HTTP 429/5xx 等明确瞬时网络错误时自动重试一次

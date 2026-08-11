@@ -21,6 +21,17 @@ const profileVersion = 1
 
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
+var builtinProfiles = map[string]Profile{
+	"mac-studio": {
+		Version: 1,
+		Target:  "mac-studio",
+		Forwards: []Forward{
+			{Name: "openclaw", LocalPort: 19010, RemoteHost: "127.0.0.1", RemotePort: 9010, URL: "http://127.0.0.1:19010/"},
+			{Name: "hermes", LocalPort: 19119, RemoteHost: "127.0.0.1", RemotePort: 9119, URL: "http://127.0.0.1:19119/"},
+		},
+	},
+}
+
 type Forward struct {
 	Name       string `yaml:"name"`
 	LocalPort  int    `yaml:"local_port"`
@@ -60,6 +71,9 @@ func ReadProfile(dir, name string) (Profile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
+			if profile, ok := builtinProfile(name); ok {
+				return profile, nil
+			}
 			return Profile{}, fmt.Errorf("tunnel profile %q 不存在: %s", name, path)
 		}
 		return Profile{}, fmt.Errorf("读取 tunnel profile %q: %w", name, err)
@@ -141,24 +155,47 @@ func (p Profile) Validate() error {
 func ListProfiles(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return builtinProfileNames(), nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("读取 tunnel profile 目录: %w", err)
 	}
 
-	profiles := make([]string, 0, len(entries))
+	profiles := builtinProfileNames()
+	seen := make(map[string]bool, len(profiles)+len(entries))
+	for _, name := range profiles {
+		seen[name] = true
+	}
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yaml" {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".yaml")
-		if profileNamePattern.MatchString(name) {
+		if profileNamePattern.MatchString(name) && !seen[name] {
 			profiles = append(profiles, name)
+			seen[name] = true
 		}
 	}
 	sort.Strings(profiles)
 	return profiles, nil
+}
+
+func builtinProfile(name string) (Profile, bool) {
+	profile, ok := builtinProfiles[name]
+	if !ok {
+		return Profile{}, false
+	}
+	profile.Forwards = append([]Forward(nil), profile.Forwards...)
+	return profile, true
+}
+
+func builtinProfileNames() []string {
+	names := make([]string, 0, len(builtinProfiles))
+	for name := range builtinProfiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func hasWhitespaceOrControl(value string) bool {

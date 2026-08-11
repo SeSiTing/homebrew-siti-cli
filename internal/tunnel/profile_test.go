@@ -48,6 +48,33 @@ func TestReadProfile(t *testing.T) {
 	}
 }
 
+func TestReadBuiltinProfileUsesSSHHostAlias(t *testing.T) {
+	profile, err := ReadProfile(t.TempDir(), "mac-studio")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.Target != "mac-studio" || len(profile.Forwards) != 2 {
+		t.Fatalf("profile = %+v", profile)
+	}
+	if profile.Forwards[0].LocalPort != 19010 || profile.Forwards[0].RemotePort != 9010 {
+		t.Fatalf("openclaw forward = %+v", profile.Forwards[0])
+	}
+}
+
+func TestUserProfileOverridesBuiltin(t *testing.T) {
+	dir := t.TempDir()
+	custom := strings.Replace(validProfileYAML, "target: mac-studio", "target: studio-vpn", 1)
+	writeProfile(t, dir, "mac-studio", custom)
+
+	profile, err := ReadProfile(dir, "mac-studio")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.Target != "studio-vpn" {
+		t.Fatalf("target = %q", profile.Target)
+	}
+}
+
 func TestReadProfileRejectsUnknownField(t *testing.T) {
 	dir := t.TempDir()
 	writeProfile(t, dir, "bad", validProfileYAML+"unknown: true\n")
@@ -104,7 +131,7 @@ func TestListProfilesSorted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"studio-a", "studio-z"}
+	want := []string{"mac-studio", "studio-a", "studio-z"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("profiles = %v, want %v", got, want)
 	}

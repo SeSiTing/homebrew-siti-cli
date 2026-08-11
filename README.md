@@ -67,9 +67,9 @@ siti net reset              # 恢复 DHCP 和自动 DNS
 siti net status             # 查看当前 siti 管理的网络配置
 siti net list               # 列出 ~/.siti/network/*.yaml
 siti net check              # ping baidu/google/github
-siti tunnel up studio       # 后台启动 SSH 本地端口转发
-siti tunnel status studio   # 查看 tunnel 和本地端口状态
-siti tunnel down studio     # 关闭 siti 管理的 SSH tunnel
+siti tunnel up mac-studio       # 按 SSH Host alias 后台启动本地转发
+siti tunnel status mac-studio   # 查看 tunnel 和本地端口状态
+siti tunnel down mac-studio     # 关闭 siti 管理的 SSH tunnel
 siti tunnel list            # 列出 ~/.siti/tunnels/*.yaml
 siti ip                     # 内网 + 公网 IP
 siti logs clean             # 清理当前目录 *.log
@@ -117,10 +117,18 @@ siti net reset
 
 ## SSH tunnel
 
-`siti tunnel` 使用系统 OpenSSH 和已有的 `~/.ssh/config`，在后台管理仅绑定本机回环地址的 SSH 本地端口转发。Profile 存放在 `~/.siti/tunnels/`：
+`siti tunnel` 使用系统 OpenSSH 和已有的 `~/.ssh/config`，在后台管理仅绑定本机回环地址的 SSH 本地端口转发。Tunnel 名称遵循 SSH Host alias；只要 `ssh mac-studio` 可以直接连接，就可以零配置运行：
+
+```bash
+siti tunnel up mac-studio
+siti tunnel status mac-studio
+siti tunnel down mac-studio
+```
+
+内置 `mac-studio` preset 包含 OpenClaw `19010→9010` 和 Hermes `19119→9119`。需要覆盖目标或端口时，在 `~/.siti/tunnels/` 创建同名 profile，用户配置优先：
 
 ```yaml
-# ~/.siti/tunnels/studio.yaml
+# ~/.siti/tunnels/mac-studio.yaml
 version: 1
 target: mac-studio
 
@@ -137,12 +145,6 @@ forwards:
 ```
 
 `remote_host` 默认为远端 `127.0.0.1`。`target` 使用平时可以直接传给 `ssh` 的别名或 `user@host`；端口、跳板机、密钥等连接细节继续放在 OpenSSH 配置中，不写入 tunnel profile。
-
-```bash
-siti tunnel up studio
-siti tunnel status studio
-siti tunnel down studio
-```
 
 `up` 使用 profile 专属 ControlSocket 后台运行，不占用当前终端；重复执行是幂等的。启动前会检查本地端口冲突，固定使用 `127.0.0.1` 本地绑定，并启用 SSH keepalive 与 `ExitOnForwardFailure`。`down` 只关闭对应 profile 的 SSH master，不影响其他 SSH 会话。
 

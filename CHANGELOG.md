@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-11 — v2.0.33
+
+- 优化 tunnel 输出为“打开 / 转发 / 状态”结构，中文状态明确区分 SSH 转发就绪与应用健康
+- 交互终端中的 Dashboard URL 使用 OSC 8 超链接，可直接点击；重定向和 CI 保持纯文本输出
+
 ## 2026-08-11 — v2.0.32
 
 - 将内置 tunnel 名称简化为 `studio`，保持底层 SSH target 为 `mac-studio`，直接运行 `siti tunnel up studio`

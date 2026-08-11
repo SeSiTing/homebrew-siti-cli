@@ -2,8 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"strings"
 
 	"github.com/SeSiTing/siti-cli/internal/tunnel"
+	"github.com/charmbracelet/x/ansi"
+	charmterm "github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 )
 
@@ -34,6 +39,7 @@ var tunnelUpCmd = &cobra.Command{
 		} else {
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ 已启动 tunnel %s\n", args[0])
 		}
+		fmt.Fprintln(cmd.OutOrStdout())
 		printTunnelForwards(cmd, result.Status)
 		return nil
 	},
@@ -74,13 +80,14 @@ var tunnelStatusCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%s:\n", args[0])
-		fmt.Fprintf(cmd.OutOrStdout(), "  target: %s\n", result.Profile.Target)
+		fmt.Fprintln(cmd.OutOrStdout(), args[0])
+		fmt.Fprintf(cmd.OutOrStdout(), "  SSH 目标: %s\n", result.Profile.Target)
 		if result.Running {
-			fmt.Fprintln(cmd.OutOrStdout(), "  state: running")
+			fmt.Fprintln(cmd.OutOrStdout(), "  状态: 运行中")
 		} else {
-			fmt.Fprintln(cmd.OutOrStdout(), "  state: stopped")
+			fmt.Fprintln(cmd.OutOrStdout(), "  状态: 已停止")
 		}
+		fmt.Fprintln(cmd.OutOrStdout())
 		printTunnelForwards(cmd, result)
 		return nil
 	},
@@ -115,16 +122,39 @@ var tunnelListCmd = &cobra.Command{
 }
 
 func printTunnelForwards(cmd *cobra.Command, result tunnel.StatusResult) {
+	writer := cmd.OutOrStdout()
+	writeTunnelForwards(writer, result, terminalHyperlinksEnabled(writer))
+}
+
+func writeTunnelForwards(writer io.Writer, result tunnel.StatusResult, hyperlinks bool) {
 	for _, forward := range result.Forwards {
-		state := "unreachable"
+		state := "本地端口未监听"
 		if forward.Reachable {
-			state = "reachable"
+			state = "SSH 转发就绪"
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "  %s: 127.0.0.1:%d -> %s:%d [%s]\n", forward.Name, forward.LocalPort, forward.RemoteHost, forward.RemotePort, state)
+		fmt.Fprintf(writer, "  %s\n", forward.Name)
 		if forward.URL != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "    %s\n", forward.URL)
+			fmt.Fprintf(writer, "    打开: %s\n", formatTerminalURL(forward.URL, hyperlinks))
 		}
+		fmt.Fprintf(writer, "    转发: 127.0.0.1:%d → %s:%d\n", forward.LocalPort, forward.RemoteHost, forward.RemotePort)
+		fmt.Fprintf(writer, "    状态: %s\n", state)
+		fmt.Fprintln(writer)
 	}
+}
+
+func formatTerminalURL(url string, hyperlinks bool) string {
+	if !hyperlinks {
+		return url
+	}
+	return ansi.SetHyperlink(url) + url + ansi.ResetHyperlink()
+}
+
+func terminalHyperlinksEnabled(writer io.Writer) bool {
+	if os.Getenv("CI") != "" || strings.EqualFold(os.Getenv("TERM"), "dumb") {
+		return false
+	}
+	file, ok := writer.(interface{ Fd() uintptr })
+	return ok && charmterm.IsTerminal(file.Fd())
 }
 
 func init() {

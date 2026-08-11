@@ -148,7 +148,7 @@ forwards:
 
 `up` 使用 profile 专属 ControlSocket 后台运行，不占用当前终端；重复执行是幂等的。启动前会检查本地端口冲突，固定使用 `127.0.0.1` 本地绑定，并启用 SSH keepalive 与 `ExitOnForwardFailure`。`down` 只关闭对应 profile 的 SSH master，不影响其他 SSH 会话。
 
-Tunnel 只负责转发，不会启动或重启远端服务。`status` 中 `reachable` 表示本地转发端口可建立 TCP 连接，不代表应用认证或业务请求一定成功。Profile URL 仅用于展示，必须指向本机 loopback，且不允许携带凭证或 query 参数。
+Tunnel 只负责转发，不会启动或重启远端服务。交互终端中的 Dashboard URL 可直接点击；重定向和 CI 输出保持纯文本。`SSH 转发就绪` 表示本地转发端口可建立 TCP 连接，不代表应用认证或业务请求一定成功。Profile URL 必须指向本机 loopback，且不允许携带凭证或 query 参数。
 
 ## AI 服务商配置
 

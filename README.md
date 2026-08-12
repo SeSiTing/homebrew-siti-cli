@@ -62,7 +62,7 @@ siti proxy status             # 查看终端、Git 和 macOS 系统代理
 
 # 端口 / 网络 / 日志
 siti port kill 3000 8080    # 释放端口（支持 --dev/--db/--web 预设）
-siti net apply blacklake-proxy  # 应用固定网络配置（macOS）
+siti net apply blacklake-proxy  # 切到 blacklake 并应用代理网络配置（macOS）
 siti net reset              # 恢复 DHCP 和自动 DNS
 siti net status             # 查看当前 siti 管理的网络配置
 siti net list               # 列出 ~/.siti/network/*.yaml
@@ -89,7 +89,7 @@ siti init zsh|bash|fish     # 输出 shell wrapper
 
 ## 网络配置
 
-`siti net` 在 macOS 上通过 `networksetup` 管理网络 profile。`blacklake-proxy` 已内置，无需创建配置文件；它保留执行时读取到的当前 Wi-Fi IPv4，并应用内置的子网掩码 `255.255.248.0`、网关与 DNS `172.16.40.2`。为避免在家庭或其他网络误操作，当前 DHCP 网关不是 `172.16.40.2` 时会在提权和修改前拒绝：
+`siti net` 在 macOS 上通过 `networksetup` 管理网络 profile。`blacklake-proxy` 已内置，无需创建配置文件。执行时，`siti` 会自动连接系统中已保存的 `blacklake` Wi-Fi，等待该网络通过 DHCP 分配 `172.16.40.0/21` 内的 IPv4，再保留这个本机地址并应用子网掩码 `255.255.248.0`、代理网关与 DNS `172.16.40.2`。DHCP 路由器可以是 `172.16.40.1`，它不是要写入的代理网关：
 
 ```bash
 siti net apply blacklake-proxy
@@ -113,9 +113,9 @@ dns:
   - 172.16.40.2
 ```
 
-应用和恢复网络配置需要管理员权限，命令会通过 `sudo` 请求授权。同名用户 profile 会覆盖内置 `blacklake-proxy`。
+第一次使用前，请先在 macOS 系统 Wi-Fi 中手动连接一次 `blacklake` 并保存凭据；之后 `siti` 切换时无需接收或保存 Wi-Fi 密码。应用和恢复网络配置需要管理员权限，命令会通过 `sudo` 请求授权。同名用户 profile 会覆盖内置 `blacklake-proxy`。
 
-程序会自动查找 Wi-Fi 对应的 device 和 network service，不依赖 service 名称必须为 `Wi-Fi`。`reset` 只处理 siti 记录的 active profile，恢复 DHCP 和自动 DNS；不会恢复应用前的手动网络参数。
+程序会自动查找 Wi-Fi 对应的 device 和 network service，不依赖 service 名称必须为 `Wi-Fi`。`reset` 只处理 siti 记录的 active profile，恢复 DHCP 和自动 DNS；不会切回之前的 SSID，也不会恢复应用前的手动网络参数。
 
 ## SSH tunnel
 

@@ -27,6 +27,7 @@ var builtinProfiles = map[string]Profile{
 	"blacklake-proxy": {
 		Version:        profileVersion,
 		Interface:      "wifi",
+		SSID:           "blacklake",
 		CurrentAddress: true,
 		IPv4: IPv4Config{
 			SubnetMask: "255.255.248.0",
@@ -45,6 +46,7 @@ type IPv4Config struct {
 type Profile struct {
 	Version        int        `yaml:"version"`
 	Interface      string     `yaml:"interface"`
+	SSID           string     `yaml:"-"`
 	CurrentAddress bool       `yaml:"-"`
 	IPv4           IPv4Config `yaml:"ipv4"`
 	DNS            []string   `yaml:"dns"`
@@ -54,6 +56,7 @@ type ActiveState struct {
 	Version   int        `json:"version"`
 	Profile   string     `json:"profile"`
 	Interface string     `json:"interface"`
+	SSID      string     `json:"ssid,omitempty"`
 	Device    string     `json:"device"`
 	Service   string     `json:"service"`
 	IPv4      IPv4Config `json:"ipv4"`

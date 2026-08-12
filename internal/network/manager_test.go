@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakeRunner struct {
@@ -71,6 +72,8 @@ Router: 172.16.40.2
 		goos:         "darwin",
 		networkSetup: networkSetup,
 		runner:       runner,
+		sleep:        func(time.Duration) {},
+		wifiAttempts: 2,
 	}, runner
 }
 
@@ -106,7 +109,7 @@ func TestApplyBuiltinUsesCurrentWiFiAddress(t *testing.T) {
 	runner.outputs[infoKey] = `DHCP Configuration
 IP address: 172.16.40.141
 Subnet mask: 255.255.255.0
-Router: 172.16.40.2
+Router: 172.16.40.1
 `
 	manualCall := "sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.141 255.255.248.0 172.16.40.2"
 	runner.onRun = func(call string) {
@@ -136,7 +139,7 @@ func TestApplyBuiltinRejectsMissingCurrentWiFiAddress(t *testing.T) {
 	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = "DHCP Configuration\n"
 
 	_, err := manager.Apply("blacklake-proxy")
-	if err == nil || !strings.Contains(err.Error(), "没有可用的 IPv4 地址") {
+	if err == nil || !strings.Contains(err.Error(), "未获取到目标网段") {
 		t.Fatalf("err = %v", err)
 	}
 	for _, call := range runner.calls {
@@ -146,7 +149,7 @@ func TestApplyBuiltinRejectsMissingCurrentWiFiAddress(t *testing.T) {
 	}
 }
 
-func TestApplyBuiltinRejectsUnexpectedGateway(t *testing.T) {
+func TestApplyBuiltinRejectsUnexpectedSubnet(t *testing.T) {
 	manager, runner := newTestManager(t)
 	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = `DHCP Configuration
 IP address: 192.168.101.143
@@ -155,13 +158,69 @@ Router: 192.168.101.1
 `
 
 	_, err := manager.Apply("blacklake-proxy")
-	if err == nil || !strings.Contains(err.Error(), "网关 192.168.101.1") || !strings.Contains(err.Error(), "172.16.40.2") {
+	if err == nil || !strings.Contains(err.Error(), "未获取到目标网段") || !strings.Contains(err.Error(), "172.16.40.2") {
 		t.Fatalf("err = %v", err)
 	}
 	for _, call := range runner.calls {
 		if strings.HasPrefix(call, "sudo ") {
 			t.Fatalf("unexpected privileged call: %s", call)
 		}
+	}
+}
+
+func TestApplyBuiltinSwitchesToBlacklakeBeforeUsingDHCPAddress(t *testing.T) {
+	manager, runner := newTestManager(t)
+	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
+	runner.outputs[infoKey] = `DHCP Configuration
+IP address: 192.168.101.143
+Subnet mask: 255.255.255.0
+Router: 192.168.101.1
+`
+	switchCall := manager.networkSetup + " -setairportnetwork en7 blacklake"
+	manualCall := "sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.229 255.255.248.0 172.16.40.2"
+	runner.onRun = func(call string) {
+		switch call {
+		case switchCall:
+			runner.outputs[infoKey] = `DHCP Configuration
+IP address: 172.16.40.229
+Subnet mask: 255.255.255.0
+Router: 172.16.40.1
+`
+		case manualCall:
+			runner.outputs[infoKey] = `Manual Configuration
+IP address: 172.16.40.229
+Subnet mask: 255.255.248.0
+Router: 172.16.40.2
+`
+		}
+	}
+
+	result, err := manager.Apply("blacklake-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.State.SSID != "blacklake" || result.State.IPv4.Address != "172.16.40.229" {
+		t.Fatalf("state = %+v", result.State)
+	}
+	if !contains(runner.calls, switchCall) || !contains(runner.calls, manualCall) {
+		t.Fatalf("calls = %v", runner.calls)
+	}
+	if indexOf(runner.calls, switchCall) > indexOf(runner.calls, "sudo -v") {
+		t.Fatalf("Wi-Fi switch must happen before sudo: %v", runner.calls)
+	}
+}
+
+func TestApplyBuiltinExplainsMissingSavedWiFi(t *testing.T) {
+	manager, runner := newTestManager(t)
+	switchCall := manager.networkSetup + " -setairportnetwork en7 blacklake"
+	runner.runErrors[switchCall] = errors.New("Failed to join network")
+
+	_, err := manager.Apply("blacklake-proxy")
+	if err == nil || !strings.Contains(err.Error(), "切换 Wi-Fi") || !strings.Contains(err.Error(), "连接并保存") {
+		t.Fatalf("err = %v", err)
+	}
+	if contains(runner.calls, "sudo -v") {
+		t.Fatalf("unexpected sudo call: %v", runner.calls)
 	}
 }
 
@@ -280,6 +339,15 @@ func TestParseNetworkInfo(t *testing.T) {
 	}
 }
 
+func TestAddressSharesSubnet(t *testing.T) {
+	if !addressSharesSubnet("172.16.40.229", "172.16.40.2", "255.255.248.0") {
+		t.Fatal("expected addresses to share /21 subnet")
+	}
+	if addressSharesSubnet("192.168.101.143", "172.16.40.2", "255.255.248.0") {
+		t.Fatal("unexpected subnet match")
+	}
+}
+
 func contains(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
@@ -287,4 +355,13 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func indexOf(values []string, target string) int {
+	for i, value := range values {
+		if value == target {
+			return i
+		}
+	}
+	return -1
 }

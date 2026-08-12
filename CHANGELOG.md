@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-08-12 — v2.0.35
+
+- `siti net apply blacklake-proxy` 自动切换到系统已保存的 `blacklake` Wi-Fi，并等待 DHCP 地址就绪
+- 保留动态获取的本机 IPv4，按目标 `/21` 网段校验；允许 Blacklake 的 DHCP 路由器为 `172.16.40.1`，不再误要求它等于代理网关 `172.16.40.2`
+- network apply/status 输出当前 preset 对应的 Wi-Fi SSID，切换失败时提示先在系统中连接并保存该网络
+
 ## 2026-08-12 — v2.0.34
 
 - 内置 `blacklake-proxy` network preset，不再要求 `~/.siti/network/blacklake-proxy.yaml`

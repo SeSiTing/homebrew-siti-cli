@@ -52,6 +52,9 @@ func TestReadBuiltinBlacklakeProxy(t *testing.T) {
 	if !profile.CurrentAddress || profile.IPv4.Address != "" {
 		t.Fatalf("address mode = %+v", profile)
 	}
+	if profile.SSID != "blacklake" {
+		t.Fatalf("SSID = %q", profile.SSID)
+	}
 	if profile.IPv4.SubnetMask != "255.255.248.0" || profile.IPv4.Gateway != "172.16.40.2" {
 		t.Fatalf("IPv4 = %+v", profile.IPv4)
 	}

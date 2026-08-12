@@ -37,6 +37,9 @@ var netApplyCmd = &cobra.Command{
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "✓ 已应用 network profile %s\n", result.State.Profile)
 		fmt.Fprintf(cmd.OutOrStdout(), "  service: %s (%s)\n", result.State.Service, result.State.Device)
+		if result.State.SSID != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Wi-Fi: %s\n", result.State.SSID)
+		}
 		fmt.Fprintf(cmd.OutOrStdout(), "  IPv4: %s/%s\n", result.State.IPv4.Address, result.State.IPv4.SubnetMask)
 		fmt.Fprintf(cmd.OutOrStdout(), "  gateway: %s\n", result.State.IPv4.Gateway)
 		fmt.Fprintf(cmd.OutOrStdout(), "  DNS: %s\n", strings.Join(result.State.DNS, ", "))
@@ -99,6 +102,9 @@ var netStatusCmd = &cobra.Command{
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "  profile: %s\n", result.State.Profile)
 		fmt.Fprintf(cmd.OutOrStdout(), "  service: %s (%s)\n", result.Service, result.State.Device)
+		if result.State.SSID != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Wi-Fi: %s\n", result.State.SSID)
+		}
 		fmt.Fprintf(cmd.OutOrStdout(), "  mode: %s\n", result.Live.Mode)
 		fmt.Fprintf(cmd.OutOrStdout(), "  IPv4: %s/%s\n", result.Live.Address, result.Live.SubnetMask)
 		fmt.Fprintf(cmd.OutOrStdout(), "  gateway: %s\n", result.Live.Gateway)

@@ -2,10 +2,12 @@ package network
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const defaultNetworkSetup = "/usr/sbin/networksetup"
@@ -42,6 +44,8 @@ type Manager struct {
 	goos         string
 	networkSetup string
 	runner       commandRunner
+	sleep        func(time.Duration)
+	wifiAttempts int
 }
 
 type ApplyResult struct {
@@ -81,6 +85,8 @@ func NewManager() (*Manager, error) {
 		goos:         runtime.GOOS,
 		networkSetup: defaultNetworkSetup,
 		runner:       execCommandRunner{},
+		sleep:        time.Sleep,
+		wifiAttempts: 30,
 	}, nil
 }
 
@@ -97,15 +103,9 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		return ApplyResult{}, err
 	}
 	if profile.CurrentAddress {
-		live, err := m.readLive(service)
+		live, err := m.prepareCurrentAddress(profile, device, service)
 		if err != nil {
-			return ApplyResult{}, fmt.Errorf("读取当前 Wi-Fi 地址: %w", err)
-		}
-		if !isIPv4(live.Address) {
-			return ApplyResult{}, fmt.Errorf("当前 Wi-Fi 没有可用的 IPv4 地址")
-		}
-		if live.Gateway != profile.IPv4.Gateway {
-			return ApplyResult{}, fmt.Errorf("当前 Wi-Fi 网关 %s 与 profile 目标网关 %s 不一致，请连接对应网络后重试", live.Gateway, profile.IPv4.Gateway)
+			return ApplyResult{}, err
 		}
 		profile.IPv4.Address = live.Address
 		profile.CurrentAddress = false
@@ -114,6 +114,7 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	state := ActiveState{
 		Profile:   name,
 		Interface: profile.Interface,
+		SSID:      profile.SSID,
 		Device:    device,
 		Service:   service,
 		IPv4:      profile.IPv4,
@@ -175,6 +176,52 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		return ApplyResult{}, fmt.Errorf("网络配置读回结果与 profile 不一致；自动回滚失败: %v", rollbackErr)
 	}
 	return ApplyResult{State: state}, nil
+}
+
+func (m *Manager) prepareCurrentAddress(profile Profile, device, service string) (LiveStatus, error) {
+	if profile.SSID == "" {
+		live, err := m.readLive(service)
+		if err != nil {
+			return LiveStatus{}, fmt.Errorf("读取当前 Wi-Fi 地址: %w", err)
+		}
+		if !isIPv4(live.Address) {
+			return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 没有可用的 IPv4 地址")
+		}
+		return live, nil
+	}
+
+	// macOS may hide the current SSID from networksetup when Location Services
+	// access is unavailable. Requesting the saved network directly is both
+	// idempotent and more reliable than trying to infer whether a switch is needed.
+	if err := m.runner.Run(m.networkSetup, "-setairportnetwork", device, profile.SSID); err != nil {
+		return LiveStatus{}, fmt.Errorf("切换 Wi-Fi 到 %q: %w（请先在系统 Wi-Fi 中连接并保存该网络）", profile.SSID, err)
+	}
+
+	attempts := m.wifiAttempts
+	if attempts <= 0 {
+		attempts = 1
+	}
+	for attempt := 0; attempt < attempts; attempt++ {
+		live, liveErr := m.readLive(service)
+		if liveErr == nil && addressSharesSubnet(live.Address, profile.IPv4.Gateway, profile.IPv4.SubnetMask) {
+			return live, nil
+		}
+		if attempt+1 < attempts && m.sleep != nil {
+			m.sleep(500 * time.Millisecond)
+		}
+	}
+	return LiveStatus{}, fmt.Errorf("已请求切换到 Wi-Fi %q，但未获取到目标网段的 IPv4 地址（期望与 %s/%s 同网段）", profile.SSID, profile.IPv4.Gateway, profile.IPv4.SubnetMask)
+}
+
+func addressSharesSubnet(address, gateway, subnetMask string) bool {
+	addressIP := net.ParseIP(address).To4()
+	gatewayIP := net.ParseIP(gateway).To4()
+	maskIP := net.ParseIP(subnetMask).To4()
+	if addressIP == nil || gatewayIP == nil || maskIP == nil {
+		return false
+	}
+	mask := net.IPMask(maskIP)
+	return addressIP.Mask(mask).Equal(gatewayIP.Mask(mask))
 }
 
 func (m *Manager) Reset() (ResetResult, error) {

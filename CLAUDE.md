@@ -106,6 +106,7 @@ wrapper 看到 exit 10
 - stderr 永远是给人看的，stdout 在 exit 10 时永远是 shell 代码
 - `brew update` 只对明确的瞬时网络错误重试一次；证书、权限和 tap 信任错误不得重试
 - 内置 `studio` tunnel preset 使用 SSH Host alias `mac-studio`，可被 `~/.siti/tunnels/studio.yaml` 同名覆盖
+- 内置 `blacklake-proxy` network preset 动态读取当前 Wi-Fi IPv4，固定应用 `/21` 掩码及 `172.16.40.2` 网关/DNS；当前网关不匹配时在提权前拒绝，可被同名 YAML 覆盖
 
 ### 目录结构
 

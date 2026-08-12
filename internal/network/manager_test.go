@@ -14,11 +14,15 @@ type fakeRunner struct {
 	outputs    map[string]string
 	runErrors  map[string]error
 	outputErrs map[string]error
+	onRun      func(string)
 }
 
 func (f *fakeRunner) Run(name string, args ...string) error {
 	key := commandKey(name, args...)
 	f.calls = append(f.calls, key)
+	if f.onRun != nil {
+		f.onRun(key)
+	}
 	return f.runErrors[key]
 }
 
@@ -39,8 +43,6 @@ func newTestManager(t *testing.T) (*Manager, *fakeRunner) {
 	if err := os.WriteFile(networkSetup, []byte("test"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	writeProfile(t, dir, "blacklake-proxy", validProfileYAML)
-
 	runner := &fakeRunner{
 		outputs: map[string]string{
 			commandKey(networkSetup, "-listallhardwareports"): `Hardware Port: Ethernet
@@ -56,7 +58,7 @@ Device: en7
 `,
 			commandKey(networkSetup, "-getinfo", "Office Wireless"): `Manual Configuration
 IP address: 172.16.40.100
-Subnet mask: 255.255.255.0
+Subnet mask: 255.255.248.0
 Router: 172.16.40.2
 `,
 			commandKey(networkSetup, "-getdnsservers", "Office Wireless"): "172.16.40.2\n",
@@ -72,7 +74,7 @@ Router: 172.16.40.2
 	}, runner
 }
 
-func TestApplyUsesStaticProfileAndRenamedWiFiService(t *testing.T) {
+func TestApplyUsesBuiltinProfileAndRenamedWiFiService(t *testing.T) {
 	manager, runner := newTestManager(t)
 	result, err := manager.Apply("blacklake-proxy")
 	if err != nil {
@@ -84,7 +86,7 @@ func TestApplyUsesStaticProfileAndRenamedWiFiService(t *testing.T) {
 
 	wantRuns := []string{
 		"sudo -v",
-		"sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.100 255.255.255.0 172.16.40.2",
+		"sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.100 255.255.248.0 172.16.40.2",
 		"sudo " + manager.networkSetup + " -setdnsservers Office Wireless 172.16.40.2",
 	}
 	for _, want := range wantRuns {
@@ -95,6 +97,71 @@ func TestApplyUsesStaticProfileAndRenamedWiFiService(t *testing.T) {
 	active, ok, err := ReadActive(manager.ConfigDir)
 	if err != nil || !ok || active.Profile != "blacklake-proxy" {
 		t.Fatalf("active = %+v, ok = %v, err = %v", active, ok, err)
+	}
+}
+
+func TestApplyBuiltinUsesCurrentWiFiAddress(t *testing.T) {
+	manager, runner := newTestManager(t)
+	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
+	runner.outputs[infoKey] = `DHCP Configuration
+IP address: 172.16.40.141
+Subnet mask: 255.255.255.0
+Router: 172.16.40.2
+`
+	manualCall := "sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.141 255.255.248.0 172.16.40.2"
+	runner.onRun = func(call string) {
+		if call == manualCall {
+			runner.outputs[infoKey] = `Manual Configuration
+IP address: 172.16.40.141
+Subnet mask: 255.255.248.0
+Router: 172.16.40.2
+`
+		}
+	}
+
+	result, err := manager.Apply("blacklake-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.State.IPv4.Address != "172.16.40.141" {
+		t.Fatalf("address = %q", result.State.IPv4.Address)
+	}
+	if !contains(runner.calls, manualCall) {
+		t.Fatalf("missing call %q in %v", manualCall, runner.calls)
+	}
+}
+
+func TestApplyBuiltinRejectsMissingCurrentWiFiAddress(t *testing.T) {
+	manager, runner := newTestManager(t)
+	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = "DHCP Configuration\n"
+
+	_, err := manager.Apply("blacklake-proxy")
+	if err == nil || !strings.Contains(err.Error(), "没有可用的 IPv4 地址") {
+		t.Fatalf("err = %v", err)
+	}
+	for _, call := range runner.calls {
+		if strings.HasPrefix(call, "sudo ") {
+			t.Fatalf("unexpected privileged call: %s", call)
+		}
+	}
+}
+
+func TestApplyBuiltinRejectsUnexpectedGateway(t *testing.T) {
+	manager, runner := newTestManager(t)
+	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = `DHCP Configuration
+IP address: 192.168.101.143
+Subnet mask: 255.255.255.0
+Router: 192.168.101.1
+`
+
+	_, err := manager.Apply("blacklake-proxy")
+	if err == nil || !strings.Contains(err.Error(), "网关 192.168.101.1") || !strings.Contains(err.Error(), "172.16.40.2") {
+		t.Fatalf("err = %v", err)
+	}
+	for _, call := range runner.calls {
+		if strings.HasPrefix(call, "sudo ") {
+			t.Fatalf("unexpected privileged call: %s", call)
+		}
 	}
 }
 
@@ -168,6 +235,7 @@ Router: 172.16.40.2
 
 func TestApplyRollsBackWhenDNSFails(t *testing.T) {
 	manager, runner := newTestManager(t)
+	writeProfile(t, manager.ConfigDir, "blacklake-proxy", validProfileYAML)
 	dnsCall := "sudo " + manager.networkSetup + " -setdnsservers Office Wireless 172.16.40.2"
 	runner.runErrors[dnsCall] = errors.New("dns failed")
 	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = "DHCP Configuration\n"

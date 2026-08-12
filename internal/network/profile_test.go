@@ -44,6 +44,35 @@ func TestReadProfile(t *testing.T) {
 	}
 }
 
+func TestReadBuiltinBlacklakeProxy(t *testing.T) {
+	profile, err := ReadProfile(t.TempDir(), "blacklake-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !profile.CurrentAddress || profile.IPv4.Address != "" {
+		t.Fatalf("address mode = %+v", profile)
+	}
+	if profile.IPv4.SubnetMask != "255.255.248.0" || profile.IPv4.Gateway != "172.16.40.2" {
+		t.Fatalf("IPv4 = %+v", profile.IPv4)
+	}
+	if !reflect.DeepEqual(profile.DNS, []string{"172.16.40.2"}) {
+		t.Fatalf("DNS = %v", profile.DNS)
+	}
+}
+
+func TestUserProfileOverridesBuiltin(t *testing.T) {
+	dir := t.TempDir()
+	writeProfile(t, dir, "blacklake-proxy", validProfileYAML)
+
+	profile, err := ReadProfile(dir, "blacklake-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.CurrentAddress || profile.IPv4.Address != "172.16.40.100" {
+		t.Fatalf("profile = %+v", profile)
+	}
+}
+
 func TestReadProfileRejectsUnknownField(t *testing.T) {
 	dir := t.TempDir()
 	writeProfile(t, dir, "bad", validProfileYAML+"unknown: true\n")
@@ -85,6 +114,18 @@ func TestListProfilesSorted(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"blacklake-proxy", "test-network"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("profiles = %v, want %v", got, want)
+	}
+}
+
+func TestListProfilesIncludesBuiltinWithoutConfigDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "missing")
+	got, err := ListProfiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"blacklake-proxy"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("profiles = %v, want %v", got, want)
 	}

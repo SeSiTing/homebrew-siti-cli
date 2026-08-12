@@ -23,6 +23,19 @@ const (
 
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
+var builtinProfiles = map[string]Profile{
+	"blacklake-proxy": {
+		Version:        profileVersion,
+		Interface:      "wifi",
+		CurrentAddress: true,
+		IPv4: IPv4Config{
+			SubnetMask: "255.255.248.0",
+			Gateway:    "172.16.40.2",
+		},
+		DNS: []string{"172.16.40.2"},
+	},
+}
+
 type IPv4Config struct {
 	Address    string `yaml:"address" json:"address"`
 	SubnetMask string `yaml:"subnet_mask" json:"subnet_mask"`
@@ -30,10 +43,11 @@ type IPv4Config struct {
 }
 
 type Profile struct {
-	Version   int        `yaml:"version"`
-	Interface string     `yaml:"interface"`
-	IPv4      IPv4Config `yaml:"ipv4"`
-	DNS       []string   `yaml:"dns"`
+	Version        int        `yaml:"version"`
+	Interface      string     `yaml:"interface"`
+	CurrentAddress bool       `yaml:"-"`
+	IPv4           IPv4Config `yaml:"ipv4"`
+	DNS            []string   `yaml:"dns"`
 }
 
 type ActiveState struct {
@@ -63,6 +77,9 @@ func ReadProfile(dir, name string) (Profile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
+			if profile, ok := builtinProfile(name); ok {
+				return profile, nil
+			}
 			return Profile{}, fmt.Errorf("network profile %q 不存在: %s", name, path)
 		}
 		return Profile{}, fmt.Errorf("读取 network profile %q: %w", name, err)
@@ -96,7 +113,7 @@ func (p Profile) Validate() error {
 	if p.Interface != "wifi" {
 		return fmt.Errorf("interface 目前仅支持 wifi")
 	}
-	if !isIPv4(p.IPv4.Address) {
+	if !p.CurrentAddress && !isIPv4(p.IPv4.Address) {
 		return fmt.Errorf("ipv4.address 不是有效 IPv4 地址: %q", p.IPv4.Address)
 	}
 	if !isSubnetMask(p.IPv4.SubnetMask) {
@@ -119,24 +136,47 @@ func (p Profile) Validate() error {
 func ListProfiles(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return builtinProfileNames(), nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("读取 network profile 目录: %w", err)
 	}
 
-	profiles := make([]string, 0, len(entries))
+	profiles := builtinProfileNames()
+	seen := make(map[string]bool, len(profiles)+len(entries))
+	for _, name := range profiles {
+		seen[name] = true
+	}
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yaml" {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".yaml")
-		if profileNamePattern.MatchString(name) {
+		if profileNamePattern.MatchString(name) && !seen[name] {
 			profiles = append(profiles, name)
+			seen[name] = true
 		}
 	}
 	sort.Strings(profiles)
 	return profiles, nil
+}
+
+func builtinProfile(name string) (Profile, bool) {
+	profile, ok := builtinProfiles[name]
+	if !ok {
+		return Profile{}, false
+	}
+	profile.DNS = append([]string(nil), profile.DNS...)
+	return profile, true
+}
+
+func builtinProfileNames() []string {
+	names := make([]string, 0, len(builtinProfiles))
+	for name := range builtinProfiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func ReadActive(dir string) (ActiveState, bool, error) {

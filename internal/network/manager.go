@@ -96,6 +96,20 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	if err != nil {
 		return ApplyResult{}, err
 	}
+	if profile.CurrentAddress {
+		live, err := m.readLive(service)
+		if err != nil {
+			return ApplyResult{}, fmt.Errorf("读取当前 Wi-Fi 地址: %w", err)
+		}
+		if !isIPv4(live.Address) {
+			return ApplyResult{}, fmt.Errorf("当前 Wi-Fi 没有可用的 IPv4 地址")
+		}
+		if live.Gateway != profile.IPv4.Gateway {
+			return ApplyResult{}, fmt.Errorf("当前 Wi-Fi 网关 %s 与 profile 目标网关 %s 不一致，请连接对应网络后重试", live.Gateway, profile.IPv4.Gateway)
+		}
+		profile.IPv4.Address = live.Address
+		profile.CurrentAddress = false
+	}
 
 	state := ActiveState{
 		Profile:   name,

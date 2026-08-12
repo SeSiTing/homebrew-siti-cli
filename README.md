@@ -89,10 +89,18 @@ siti init zsh|bash|fish     # 输出 shell wrapper
 
 ## 网络配置
 
-`siti net` 在 macOS 上通过 `networksetup` 管理固定 IPv4。profile 存放在 `~/.siti/network/`，例如：
+`siti net` 在 macOS 上通过 `networksetup` 管理网络 profile。`blacklake-proxy` 已内置，无需创建配置文件；它保留执行时读取到的当前 Wi-Fi IPv4，并应用内置的子网掩码 `255.255.248.0`、网关与 DNS `172.16.40.2`。为避免在家庭或其他网络误操作，当前 DHCP 网关不是 `172.16.40.2` 时会在提权和修改前拒绝：
+
+```bash
+siti net apply blacklake-proxy
+siti net status
+siti net reset
+```
+
+其他 profile 可以存放在 `~/.siti/network/`，例如：
 
 ```yaml
-# ~/.siti/network/blacklake-proxy.yaml
+# ~/.siti/network/test-network.yaml
 version: 1
 interface: wifi
 
@@ -105,13 +113,7 @@ dns:
   - 172.16.40.2
 ```
 
-应用和恢复网络配置需要管理员权限，命令会通过 `sudo` 请求授权：
-
-```bash
-siti net apply blacklake-proxy
-siti net status
-siti net reset
-```
+应用和恢复网络配置需要管理员权限，命令会通过 `sudo` 请求授权。同名用户 profile 会覆盖内置 `blacklake-proxy`。
 
 程序会自动查找 Wi-Fi 对应的 device 和 network service，不依赖 service 名称必须为 `Wi-Fi`。`reset` 只处理 siti 记录的 active profile，恢复 DHCP 和自动 DNS；不会恢复应用前的手动网络参数。
 

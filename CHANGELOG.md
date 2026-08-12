@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-12 — v2.0.36
+
+- 修复受保护 Wi-Fi 自动切换缺少管理员权限的问题，由 `sudo networksetup` 使用 macOS 已保存的网络凭据
+- 识别 `networksetup` 以退出码 0 输出 `Failed to join network` 的异常行为，切换失败时立即返回真实错误，不再等待地址超时
+
 ## 2026-08-12 — v2.0.35
 
 - `siti net apply blacklake-proxy` 自动切换到系统已保存的 `blacklake` Wi-Fi，并等待 DHCP 地址就绪

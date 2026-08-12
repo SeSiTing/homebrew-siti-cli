@@ -113,7 +113,7 @@ dns:
   - 172.16.40.2
 ```
 
-第一次使用前，请先在 macOS 系统 Wi-Fi 中手动连接一次 `blacklake` 并保存凭据；之后 `siti` 切换时无需接收或保存 Wi-Fi 密码。应用和恢复网络配置需要管理员权限，命令会通过 `sudo` 请求授权。同名用户 profile 会覆盖内置 `blacklake-proxy`。
+第一次使用前，请先在 macOS 系统 Wi-Fi 中手动连接一次 `blacklake` 并保存凭据；之后 `siti` 会通过管理员权限让 macOS 使用系统已保存的网络凭据，无需读取、接收或保存 Wi-Fi 密码。切换、应用和恢复网络配置时，命令会通过 `sudo` 请求授权。同名用户 profile 会覆盖内置 `blacklake-proxy`。
 
 程序会自动查找 Wi-Fi 对应的 device 和 network service，不依赖 service 名称必须为 `Wi-Fi`。`reset` 只处理 siti 记录的 active profile，恢复 DHCP 和自动 DNS；不会切回之前的 SSID，也不会恢复应用前的手动网络参数。
 

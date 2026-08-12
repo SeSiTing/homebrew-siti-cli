@@ -102,6 +102,13 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	if err != nil {
 		return ApplyResult{}, err
 	}
+	privileged := false
+	if profile.CurrentAddress && profile.SSID != "" {
+		if err := m.runner.Run("sudo", "-v"); err != nil {
+			return ApplyResult{}, fmt.Errorf("获取管理员权限: %w", err)
+		}
+		privileged = true
+	}
 	if profile.CurrentAddress {
 		live, err := m.prepareCurrentAddress(profile, device, service)
 		if err != nil {
@@ -131,8 +138,10 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		}
 	}
 
-	if err := m.runner.Run("sudo", "-v"); err != nil {
-		return ApplyResult{}, fmt.Errorf("获取管理员权限: %w", err)
+	if !privileged {
+		if err := m.runner.Run("sudo", "-v"); err != nil {
+			return ApplyResult{}, fmt.Errorf("获取管理员权限: %w", err)
+		}
 	}
 	if hasActive && active.Profile != name {
 		if _, _, err := m.resetState(active); err != nil {
@@ -193,7 +202,7 @@ func (m *Manager) prepareCurrentAddress(profile Profile, device, service string)
 	// macOS may hide the current SSID from networksetup when Location Services
 	// access is unavailable. Requesting the saved network directly is both
 	// idempotent and more reliable than trying to infer whether a switch is needed.
-	if err := m.runner.Run(m.networkSetup, "-setairportnetwork", device, profile.SSID); err != nil {
+	if err := m.switchWiFi(device, profile.SSID); err != nil {
 		return LiveStatus{}, fmt.Errorf("切换 Wi-Fi 到 %q: %w（请先在系统 Wi-Fi 中连接并保存该网络）", profile.SSID, err)
 	}
 
@@ -211,6 +220,18 @@ func (m *Manager) prepareCurrentAddress(profile Profile, device, service string)
 		}
 	}
 	return LiveStatus{}, fmt.Errorf("已请求切换到 Wi-Fi %q，但未获取到目标网段的 IPv4 地址（期望与 %s/%s 同网段）", profile.SSID, profile.IPv4.Gateway, profile.IPv4.SubnetMask)
+}
+
+func (m *Manager) switchWiFi(device, ssid string) error {
+	out, err := m.runner.Output("sudo", m.networkSetup, "-setairportnetwork", device, ssid)
+	if err != nil {
+		return err
+	}
+	message := strings.TrimSpace(out)
+	if strings.Contains(strings.ToLower(message), "failed") || strings.Contains(message, "Error:") {
+		return fmt.Errorf("%s", message)
+	}
+	return nil
 }
 
 func addressSharesSubnet(address, gateway, subnetMask string) bool {

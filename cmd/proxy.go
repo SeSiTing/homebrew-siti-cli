@@ -34,12 +34,16 @@ type proxyReference struct {
 
 var proxyCmd = &cobra.Command{
 	Use:   "proxy",
-	Short: "管理终端代理设置",
+	Short: "管理当前终端和 Git 持久代理",
+	Long: `管理代理设置。
+
+日常切换：Clash Verge 使用 "siti proxy on"，软路由使用 "siti proxy off"。
+"proxy git" 只管理持久的 Git 全局配置，不影响 Homebrew、curl 等命令。`,
 }
 
 var proxyOnCmd = &cobra.Command{
 	Use:   "on",
-	Short: "开启终端代理",
+	Short: "当前终端开启代理（Git/Homebrew/curl）",
 	Args:  cobra.NoArgs,
 	RunE: func(c *cobra.Command, args []string) error {
 		httpProxy := fmt.Sprintf("http://%s:%s", proxyHost, proxyPort)
@@ -59,10 +63,14 @@ var proxyOnCmd = &cobra.Command{
 
 var proxyOffCmd = &cobra.Command{
 	Use:   "off",
-	Short: "关闭终端代理",
+	Short: "当前终端关闭代理（适用于软路由）",
 	Args:  cobra.NoArgs,
 	RunE: func(c *cobra.Command, args []string) error {
 		printErr("✓ 终端代理已关闭")
+		if active, err := managedGlobalGitProxyActive(); err == nil && active {
+			printErr("! Git 全局代理仍开启，停止 Clash 后 Git 将无法连接")
+			printErr("→ 软路由建议一次性清理: siti proxy git off")
+		}
 		unsetTerminalProxy(c)
 		return nil
 	},
@@ -70,25 +78,31 @@ var proxyOffCmd = &cobra.Command{
 
 var proxyGitCmd = &cobra.Command{
 	Use:   "git",
-	Short: "管理 Git 全局代理配置",
+	Short: "管理持久的 Git 全局代理（高级）",
+	Long: `管理持久的 Git 全局代理配置。
+
+该配置仅影响 Git，不影响 Homebrew、curl 或当前终端中的其他命令。
+在 Clash Verge 和软路由之间切换时，推荐只使用 "siti proxy on/off"。`,
 }
 
 var proxyGitOnCmd = &cobra.Command{
 	Use:   "on",
-	Short: "开启 Git 全局代理",
+	Short: "持久开启 Git 全局代理",
 	Args:  cobra.NoArgs,
 	RunE: func(c *cobra.Command, args []string) error {
 		if err := enableGlobalGitProxy(); err != nil {
 			return fmt.Errorf("开启 Git 全局代理: %w", err)
 		}
 		printErr("✓ Git 全局代理已开启 (%s:%s)", proxyHost, proxyPort)
+		printErr("! 仅影响 Git，不影响 Homebrew 或 curl")
+		printErr("→ 日常网络切换请使用: siti proxy on/off")
 		return nil
 	},
 }
 
 var proxyGitOffCmd = &cobra.Command{
 	Use:   "off",
-	Short: "关闭 Git 全局代理",
+	Short: "关闭持久的 Git 全局代理",
 	Args:  cobra.NoArgs,
 	RunE: func(c *cobra.Command, args []string) error {
 		count, err := disableGlobalGitProxy()
@@ -181,6 +195,10 @@ var proxyStatusCmd = &cobra.Command{
 		}
 		if managedGitActive {
 			fmt.Println("→ 关闭 Git 全局代理: siti proxy git off")
+			if !terminalActive {
+				fmt.Println("! 当前仅 Git 使用代理；Homebrew/curl 不会使用 Git 全局配置")
+				fmt.Println("→ 使用 Clash Verge: siti proxy on")
+			}
 		}
 		if unmanagedGitActive {
 			fmt.Println("! URL 级 Git 代理仅展示，不会被 siti proxy git off 修改")
@@ -374,6 +392,41 @@ func preflightUpgradeProxy() error {
 		remedies = append(remedies, "  siti proxy git off")
 	}
 	return fmt.Errorf("本地代理不可用:\n%s\n\n升级尚未开始，未修改任何代理配置。\n\n→ 清理对应代理:\n%s", strings.Join(lines, "\n"), strings.Join(remedies, "\n"))
+}
+
+func brewProxyHint() (string, error) {
+	if terminalProxyActive() {
+		return "", nil
+	}
+	active, err := managedGlobalGitProxyActive()
+	if err != nil {
+		return "", err
+	}
+	if active {
+		return "! 当前仅开启 Git 全局代理，Homebrew/curl 不会使用它\n→ Clash Verge: 先运行 siti proxy on\n→ 软路由: 无需终端代理；建议清理持久配置 siti proxy git off", nil
+	}
+	return "", nil
+}
+
+func managedGlobalGitProxyActive() (bool, error) {
+	entries, err := globalGitProxies()
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range entries {
+		if isManagedGitProxyKey(entry.key) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func terminalProxyActive() bool {
+	return firstNonEmpty(
+		lookupEnv("http_proxy"), lookupEnv("HTTP_PROXY"),
+		lookupEnv("https_proxy"), lookupEnv("HTTPS_PROXY"),
+		lookupEnv("all_proxy"), lookupEnv("ALL_PROXY"),
+	) != ""
 }
 
 func configuredLocalProxyReferences() ([]proxyReference, error) {

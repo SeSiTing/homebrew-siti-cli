@@ -192,6 +192,37 @@ func TestPreflightUpgradeProxySuggestsTerminalOff(t *testing.T) {
 	}
 }
 
+func TestBrewProxyHintWhenOnlyGitProxyIsEnabled(t *testing.T) {
+	clearProxyEnvironment(t)
+	t.Setenv("GIT_CONFIG_GLOBAL", t.TempDir()+"/gitconfig")
+	setGitConfig(t, "https.proxy", "http://127.0.0.1:7890")
+
+	hint, err := brewProxyHint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Homebrew/curl", "siti proxy on", "siti proxy git off"} {
+		if !strings.Contains(hint, want) {
+			t.Errorf("hint %q does not contain %q", hint, want)
+		}
+	}
+}
+
+func TestBrewProxyHintHiddenWhenTerminalProxyIsEnabled(t *testing.T) {
+	clearProxyEnvironment(t)
+	t.Setenv("GIT_CONFIG_GLOBAL", t.TempDir()+"/gitconfig")
+	setGitConfig(t, "https.proxy", "http://127.0.0.1:7890")
+	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:7890")
+
+	hint, err := brewProxyHint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hint != "" {
+		t.Fatalf("unexpected hint: %q", hint)
+	}
+}
+
 func clearProxyEnvironment(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{"http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"} {

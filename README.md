@@ -55,9 +55,10 @@ siti ai test                # 测试当前 Claude API 连通性
 siti ai clear               # 清除当前 shell 的 Claude + Grok 变量
 siti ai clear --client codex            # 恢复 Codex 原有全局配置
 
-# 终端代理 (127.0.0.1:7890)
-siti proxy on / off
-siti proxy git on / off       # 持久开启或关闭 Git 全局代理
+# 代理 (127.0.0.1:7890)
+siti proxy on                 # Clash Verge：当前终端开启（Git/Homebrew/curl）
+siti proxy off                # 软路由：当前终端关闭
+siti proxy git on / off       # 高级：只管理持久的 Git 全局代理
 siti proxy status             # 查看终端、Git 和 macOS 系统代理
 
 # 端口 / 网络 / 日志
@@ -82,6 +83,8 @@ siti upgrade --bl-ops       # 升级或刷新 bl-ops
 siti upgrade --all          # 升级 self + brew + npm + bl-ops
 siti init zsh|bash|fish     # 输出 shell wrapper
 ```
+
+日常在 Clash Verge 和软路由之间切换时，只需使用 `siti proxy on/off`：终端环境代理会同时供 Git、Homebrew 和 curl 使用。`siti proxy git on/off` 是持久配置，仅影响 Git，通常无需开启；`siti upgrade` 检测到只开启 Git 代理时会明确提示正确的切换命令。
 
 `siti upgrade` 会在运行 Homebrew 或 Git 更新前检查本地代理端口。若 Git 或终端代理指向未监听的 `localhost` / `127.0.0.1`，升级会在修改任何配置前停止，并根据来源提示运行 `siti proxy off` 或 `siti proxy git off`；不会自动删除代理配置。
 

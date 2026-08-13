@@ -33,9 +33,6 @@ func sectionSelf(cmd *cobra.Command) (bool, error) {
 		if _, err := exec.LookPath("brew"); err != nil {
 			return false, fmt.Errorf("未找到 Homebrew: %w", err)
 		}
-		if err := preflightUpgradeProxy(); err != nil {
-			return false, err
-		}
 		if err := runBrewUpdate(); err != nil {
 			return false, fmt.Errorf("brew update 失败: %w", err)
 		}

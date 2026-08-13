@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-08-13 — v2.0.37
+
+- 明确 `siti proxy on/off` 用于 Clash Verge 与软路由的日常切换，终端代理同时覆盖 Git、Homebrew 和 curl
+- 将 `siti proxy git on/off` 标记为仅影响 Git 的持久高级配置，开启时提示不会代理 Homebrew/curl
+- Homebrew 更新前若检测到只有 Git 全局代理，分别提示 Clash Verge 和软路由的正确处理方式
+
 ## 2026-08-12 — v2.0.36
 
 - 修复受保护 Wi-Fi 自动切换缺少管理员权限的问题，由 `sudo networksetup` 使用 macOS 已保存的网络凭据

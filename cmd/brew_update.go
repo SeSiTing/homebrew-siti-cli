@@ -16,6 +16,16 @@ const brewUpdateRetryDelay = time.Second
 var transientHTTPStatusPattern = regexp.MustCompile(`(?i)HTTP status:\s*(429|5[0-9]{2})\b`)
 
 func runBrewUpdate() error {
+	if err := preflightUpgradeProxy(); err != nil {
+		return err
+	}
+	hint, err := brewProxyHint()
+	if err != nil {
+		return fmt.Errorf("读取代理配置: %w", err)
+	}
+	if hint != "" {
+		fmt.Fprintln(os.Stderr, hint)
+	}
 	return runBrewUpdateWith(runBrewUpdateAttempt, time.Sleep)
 }
 

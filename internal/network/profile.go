@@ -25,13 +25,13 @@ var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
 var builtinProfiles = map[string]Profile{
 	"blacklake-proxy": {
-		Version:        profileVersion,
-		Interface:      "wifi",
-		SSID:           "blacklake",
-		CurrentAddress: true,
+		Version:           profileVersion,
+		Interface:         "wifi",
+		SSID:              "blacklake",
+		CurrentAddress:    true,
+		CurrentSubnetMask: true,
 		IPv4: IPv4Config{
-			SubnetMask: "255.255.248.0",
-			Gateway:    "172.16.40.2",
+			Gateway: "172.16.40.2",
 		},
 		DNS: []string{"172.16.40.2"},
 	},
@@ -44,12 +44,13 @@ type IPv4Config struct {
 }
 
 type Profile struct {
-	Version        int        `yaml:"version"`
-	Interface      string     `yaml:"interface"`
-	SSID           string     `yaml:"ssid,omitempty"`
-	CurrentAddress bool       `yaml:"-"`
-	IPv4           IPv4Config `yaml:"ipv4"`
-	DNS            []string   `yaml:"dns"`
+	Version           int        `yaml:"version"`
+	Interface         string     `yaml:"interface"`
+	SSID              string     `yaml:"ssid,omitempty"`
+	CurrentAddress    bool       `yaml:"-"`
+	CurrentSubnetMask bool       `yaml:"-"`
+	IPv4              IPv4Config `yaml:"ipv4"`
+	DNS               []string   `yaml:"dns"`
 }
 
 type ActiveState struct {
@@ -111,6 +112,10 @@ func ReadProfile(dir, name string) (Profile, error) {
 		profile.CurrentAddress = true
 		profile.IPv4.Address = ""
 	}
+	if strings.EqualFold(profile.IPv4.SubnetMask, "current") {
+		profile.CurrentSubnetMask = true
+		profile.IPv4.SubnetMask = ""
+	}
 	for i := range profile.DNS {
 		profile.DNS[i] = strings.TrimSpace(profile.DNS[i])
 	}
@@ -130,7 +135,7 @@ func (p Profile) Validate() error {
 	if !p.CurrentAddress && !isIPv4(p.IPv4.Address) {
 		return fmt.Errorf("ipv4.address 不是有效 IPv4 地址: %q", p.IPv4.Address)
 	}
-	if !isSubnetMask(p.IPv4.SubnetMask) {
+	if !p.CurrentSubnetMask && !isSubnetMask(p.IPv4.SubnetMask) {
 		return fmt.Errorf("ipv4.subnet_mask 不是有效子网掩码: %q", p.IPv4.SubnetMask)
 	}
 	if !isIPv4(p.IPv4.Gateway) {

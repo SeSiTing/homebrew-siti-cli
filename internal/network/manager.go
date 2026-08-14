@@ -71,10 +71,9 @@ type ApplyChecks struct {
 }
 
 type ResetResult struct {
-	State   ActiveState
 	Service string
+	Device  string
 	Live    LiveStatus
-	Changed bool
 }
 
 type LiveStatus struct {
@@ -121,13 +120,24 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	if profile.CurrentAddress {
-		live, err := m.prepareCurrentAddress(profile, service)
+	active, hasActive, err := ReadActive(m.ConfigDir)
+	if err != nil {
+		return ApplyResult{}, err
+	}
+	if profile.CurrentAddress || profile.CurrentSubnetMask {
+		allowManual := hasActive && active.Profile == name
+		live, err := m.prepareCurrentNetwork(profile, service, allowManual)
 		if err != nil {
 			return ApplyResult{}, err
 		}
-		profile.IPv4.Address = live.Address
-		profile.CurrentAddress = false
+		if profile.CurrentAddress {
+			profile.IPv4.Address = live.Address
+			profile.CurrentAddress = false
+		}
+		if profile.CurrentSubnetMask {
+			profile.IPv4.SubnetMask = live.SubnetMask
+			profile.CurrentSubnetMask = false
+		}
 	}
 
 	state := ActiveState{
@@ -138,10 +148,6 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		Service:   service,
 		IPv4:      profile.IPv4,
 		DNS:       append([]string(nil), profile.DNS...),
-	}
-	active, hasActive, err := ReadActive(m.ConfigDir)
-	if err != nil {
-		return ApplyResult{}, err
 	}
 	if hasActive && active.Profile == name {
 		live, err := m.readLive(service)
@@ -302,19 +308,36 @@ func connectivityCurlArgs(resolvedIP string) []string {
 	}
 }
 
-func (m *Manager) prepareCurrentAddress(profile Profile, service string) (LiveStatus, error) {
+func (m *Manager) prepareCurrentNetwork(profile Profile, service string, allowManual bool) (LiveStatus, error) {
 	live, err := m.readLive(service)
 	if err != nil {
-		return LiveStatus{}, fmt.Errorf("读取当前 Wi-Fi 地址: %w", err)
+		return LiveStatus{}, fmt.Errorf("读取当前 Wi-Fi 配置: %w", err)
 	}
-	if !isIPv4(live.Address) {
+	if live.Mode != "DHCP Configuration" && !allowManual {
+		return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 不是 DHCP 模式（%s）；请先运行 siti net reset", displayValue(live.Mode))
+	}
+	if profile.CurrentAddress && !isIPv4(live.Address) {
 		if profile.SSID != "" {
 			return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 没有可用的 IPv4 地址；请先手动连接 %q", profile.SSID)
 		}
 		return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 没有可用的 IPv4 地址")
 	}
-	if profile.SSID != "" && !addressSharesSubnet(live.Address, profile.IPv4.Gateway, profile.IPv4.SubnetMask) {
-		return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 地址 %s 不在 %s 的目标网段（%s/%s）；请先手动连接 %q", live.Address, profile.SSID, profile.IPv4.Gateway, profile.IPv4.SubnetMask, profile.SSID)
+	if profile.CurrentSubnetMask && !isSubnetMask(live.SubnetMask) {
+		return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 没有有效的子网掩码: %s", displayValue(live.SubnetMask))
+	}
+	address := profile.IPv4.Address
+	if profile.CurrentAddress {
+		address = live.Address
+	}
+	subnetMask := profile.IPv4.SubnetMask
+	if profile.CurrentSubnetMask {
+		subnetMask = live.SubnetMask
+	}
+	if !addressSharesSubnet(address, profile.IPv4.Gateway, subnetMask) {
+		if profile.SSID != "" {
+			return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 地址 %s 无法访问 %s 网关（子网掩码 %s）；请先手动连接 %q", address, profile.IPv4.Gateway, subnetMask, profile.SSID)
+		}
+		return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 地址 %s 无法访问 %s 网关（子网掩码 %s）", address, profile.IPv4.Gateway, subnetMask)
 	}
 	return live, nil
 }
@@ -331,27 +354,24 @@ func addressSharesSubnet(address, gateway, subnetMask string) bool {
 }
 
 func (m *Manager) Reset() (ResetResult, error) {
-	state, active, err := ReadActive(m.ConfigDir)
-	if err != nil {
+	if err := m.checkSupported(); err != nil {
 		return ResetResult{}, err
 	}
-	if !active {
-		return ResetResult{}, nil
-	}
-	if err := m.checkSupported(); err != nil {
+	device, service, err := m.resolveWiFi()
+	if err != nil {
 		return ResetResult{}, err
 	}
 	if err := m.runner.Run("sudo", "-v"); err != nil {
 		return ResetResult{}, fmt.Errorf("获取管理员权限: %w", err)
 	}
-	service, live, err := m.resetState(state)
+	live, err := m.resetService(service)
 	if err != nil {
 		return ResetResult{}, err
 	}
 	if err := RemoveActive(m.ConfigDir); err != nil {
 		return ResetResult{}, err
 	}
-	return ResetResult{State: state, Service: service, Live: live, Changed: true}, nil
+	return ResetResult{Service: service, Device: device, Live: live}, nil
 }
 
 func (m *Manager) Status() (StatusResult, error) {
@@ -424,7 +444,7 @@ func (m *Manager) resetState(state ActiveState) (string, LiveStatus, error) {
 }
 
 func (m *Manager) resetService(service string) (LiveStatus, error) {
-	if err := m.runNetworkSetup("-setdhcp", service, "Empty"); err != nil {
+	if err := m.runNetworkSetup("-setdhcp", service); err != nil {
 		return LiveStatus{}, fmt.Errorf("恢复 DHCP: %w", err)
 	}
 	if err := m.runNetworkSetup("-setdnsservers", service, "Empty"); err != nil {

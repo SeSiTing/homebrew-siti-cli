@@ -23,7 +23,7 @@ interface: wifi
 ssid: blacklake
 ipv4:
   address: current
-  subnet_mask: 255.255.248.0
+  subnet_mask: current
   gateway: 172.16.40.2
 dns:
   - 172.16.40.2
@@ -60,13 +60,13 @@ func TestReadBuiltinBlacklakeProxy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !profile.CurrentAddress || profile.IPv4.Address != "" {
+	if !profile.CurrentAddress || !profile.CurrentSubnetMask || profile.IPv4.Address != "" || profile.IPv4.SubnetMask != "" {
 		t.Fatalf("address mode = %+v", profile)
 	}
 	if profile.SSID != "blacklake" {
 		t.Fatalf("SSID = %q", profile.SSID)
 	}
-	if profile.IPv4.SubnetMask != "255.255.248.0" || profile.IPv4.Gateway != "172.16.40.2" {
+	if profile.IPv4.Gateway != "172.16.40.2" {
 		t.Fatalf("IPv4 = %+v", profile.IPv4)
 	}
 	if !reflect.DeepEqual(profile.DNS, []string{"172.16.40.2"}) {
@@ -82,13 +82,13 @@ func TestReadProfileSupportsCurrentAddressAndSSID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !profile.CurrentAddress || profile.IPv4.Address != "" {
+	if !profile.CurrentAddress || !profile.CurrentSubnetMask || profile.IPv4.Address != "" || profile.IPv4.SubnetMask != "" {
 		t.Fatalf("address mode = %+v", profile)
 	}
 	if profile.SSID != "blacklake" {
 		t.Fatalf("SSID = %q", profile.SSID)
 	}
-	if profile.IPv4.SubnetMask != "255.255.248.0" || profile.IPv4.Gateway != "172.16.40.2" {
+	if profile.IPv4.Gateway != "172.16.40.2" {
 		t.Fatalf("IPv4 = %+v", profile.IPv4)
 	}
 }
@@ -141,6 +141,17 @@ func TestReadProfileRejectsUnknownAddressMode(t *testing.T) {
 
 	_, err := ReadProfile(dir, "bad-address")
 	if err == nil || !strings.Contains(err.Error(), "ipv4.address") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestReadProfileRejectsUnknownSubnetMaskMode(t *testing.T) {
+	dir := t.TempDir()
+	bad := strings.Replace(currentAddressProfileYAML, "subnet_mask: current", "subnet_mask: dynamic", 1)
+	writeProfile(t, dir, "bad-mask-mode", bad)
+
+	_, err := ReadProfile(dir, "bad-mask-mode")
+	if err == nil || !strings.Contains(err.Error(), "ipv4.subnet_mask") {
 		t.Fatalf("err = %v", err)
 	}
 }

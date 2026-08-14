@@ -106,7 +106,7 @@ wrapper 看到 exit 10
 - stderr 永远是给人看的，stdout 在 exit 10 时永远是 shell 代码
 - `brew update` 只对明确的瞬时网络错误重试一次；证书、权限和 tap 信任错误不得重试
 - 内置 `studio` tunnel preset 使用 SSH Host alias `mac-studio`，可被 `~/.siti/tunnels/studio.yaml` 同名覆盖
-- 内置 `blacklake-proxy` network preset 要求用户先手动连接 `blacklake`，动态读取当前 DHCP IPv4，确认地址属于目标 `/21` 网段后固定应用该地址及 `172.16.40.2` 网关/DNS；不负责切换 Wi-Fi，可被同名 YAML 覆盖。YAML 支持 `ssid` 和 `ipv4.address: current`，避免在用户配置里写死本机地址
+- 内置 `blacklake-proxy` network preset 要求用户先手动连接 `blacklake`，保留当前 DHCP IPv4 和子网掩码，仅替换为 `172.16.40.2` 网关/DNS；不负责切换 Wi-Fi，可被同名 YAML 覆盖。YAML 支持 `ssid`、`ipv4.address: current` 和 `ipv4.subnet_mask: current`。`net reset` 无条件强制恢复当前 Wi-Fi service 的 DHCP/自动 DNS，active 文件不能阻止恢复
 
 ### 目录结构
 

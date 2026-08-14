@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-08-14 — v2.0.42
+
+- `siti net reset` 不再依赖 active 状态，每次都强制恢复当前 Wi-Fi service 的 DHCP 和自动 DNS，并清除残留或损坏的 active 文件
+- `blacklake-proxy` 对齐原始脚本：保留 DHCP 获取的本机 IP 和子网掩码，只替换网关与 DNS；应用前仍校验目标网关位于当前子网
+- network YAML profile 新增 `ipv4.subnet_mask: current` 动态模式
+
 ## 2026-08-14 — v2.0.41
 
 - network YAML profile 支持 `ssid` 和 `ipv4.address: current`，可以复用当前 DHCP 地址而不在配置文件中写死本机 IP

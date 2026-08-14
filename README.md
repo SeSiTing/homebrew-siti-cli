@@ -64,7 +64,7 @@ siti proxy status             # 查看终端、Git 和 macOS 系统代理
 # 端口 / 网络 / 日志
 siti port kill 3000 8080    # 释放端口（支持 --dev/--db/--web 预设）
 siti net apply blacklake-proxy  # 在已连接 blacklake 时应用代理网络配置（macOS）
-siti net reset              # 恢复 DHCP 和自动 DNS
+siti net reset              # 强制恢复 DHCP 和自动 DNS
 siti net status             # 查看当前 siti 管理的网络配置
 siti net list               # 列出内置和 ~/.siti/network/*.yaml profile
 siti net check              # ping baidu/google/github
@@ -94,7 +94,7 @@ siti init zsh|bash|fish     # 输出 shell wrapper
 
 `siti net` 在 macOS 上通过 `networksetup` 管理网络 profile。`blacklake-proxy` 带有内置默认值；个人网络参数建议保存在 `~/.siti/network/blacklake-proxy.yaml`，同名文件会覆盖内置 preset，参数变化时无需升级 siti。
 
-`address: current` 表示读取并保留当前 DHCP IPv4，而不是在文件里写死本机地址。执行前需要先在系统 Wi-Fi 中手动连接 `blacklake`；`siti` 不负责切换 Wi-Fi，只校验当前 IPv4 属于目标网段，然后应用 profile 中的子网掩码、网关和 DNS：
+`address: current` 和 `subnet_mask: current` 表示保留当前 DHCP 获取的 IPv4 和子网掩码。执行前需要先在系统 Wi-Fi 中手动连接 `blacklake`；`siti` 不负责切换 Wi-Fi，只确认当前地址可以直接访问 profile 网关，然后替换网关和 DNS：
 
 ```yaml
 # ~/.siti/network/blacklake-proxy.yaml
@@ -104,7 +104,7 @@ ssid: blacklake
 
 ipv4:
   address: current
-  subnet_mask: 255.255.248.0
+  subnet_mask: current
   gateway: 172.16.40.2
 
 dns:
@@ -133,9 +133,9 @@ dns:
   - 172.16.40.2
 ```
 
-不在目标网段时，命令会在提权和修改网络配置前停止，并提示先手动连接 profile 标注的 Wi-Fi。应用和恢复 IPv4/DNS 配置时，命令会通过 `sudo` 请求授权。`address: current` 只复用当前地址；子网掩码、网关和 DNS 仍以 profile 文件为准。
+当前地址无法直接访问 profile 网关时，命令会在提权和修改网络配置前停止，并提示先手动连接 profile 标注的 Wi-Fi。应用和恢复 IPv4/DNS 配置时，命令会通过 `sudo` 请求授权。
 
-程序会自动查找 Wi-Fi 对应的 device 和 network service，不依赖 service 名称必须为 `Wi-Fi`。`reset` 只处理 siti 记录的 active profile，恢复 DHCP 和自动 DNS；不会切回之前的 SSID，也不会恢复应用前的手动网络参数。
+程序会自动查找 Wi-Fi 对应的 device 和 network service，不依赖 service 名称必须为 `Wi-Fi`。`reset` 不依赖 siti active 状态，每次都会强制把当前 Wi-Fi service 恢复为 DHCP 和自动 DNS，并清除残留 active 文件；不会切换 SSID。
 
 ## SSH tunnel
 

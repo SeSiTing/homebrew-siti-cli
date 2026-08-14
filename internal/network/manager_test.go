@@ -67,10 +67,10 @@ Device: en7
 (2) Office Wireless
 (Hardware Port: Wi-Fi, Device: en7)
 `,
-			commandKey(networkSetup, "-getinfo", "Office Wireless"): `Manual Configuration
+			commandKey(networkSetup, "-getinfo", "Office Wireless"): `DHCP Configuration
 IP address: 172.16.40.100
 Subnet mask: 255.255.248.0
-Router: 172.16.40.2
+Router: 172.16.40.1
 `,
 			commandKey(networkSetup, "-getdnsservers", "Office Wireless"): "172.16.40.2\n",
 			commandKey(routeCommand, "-n", "get", "default"): `   route to: default
@@ -84,6 +84,16 @@ destination: default
 		outputSequences: map[string][]string{},
 		runErrors:       map[string]error{},
 		outputErrs:      map[string]error{},
+	}
+	manualCall := "sudo " + networkSetup + " -setmanual Office Wireless 172.16.40.100 255.255.248.0 172.16.40.2"
+	runner.onRun = func(call string) {
+		if call == manualCall {
+			runner.outputs[commandKey(networkSetup, "-getinfo", "Office Wireless")] = `Manual Configuration
+IP address: 172.16.40.100
+Subnet mask: 255.255.248.0
+Router: 172.16.40.2
+`
+		}
 	}
 	return &Manager{
 		ConfigDir:    dir,
@@ -139,12 +149,12 @@ IP address: 172.16.40.141
 Subnet mask: 255.255.255.0
 Router: 172.16.40.1
 `
-	manualCall := "sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.141 255.255.248.0 172.16.40.2"
+	manualCall := "sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.141 255.255.255.0 172.16.40.2"
 	runner.onRun = func(call string) {
 		if call == manualCall {
 			runner.outputs[infoKey] = `Manual Configuration
 IP address: 172.16.40.141
-Subnet mask: 255.255.248.0
+Subnet mask: 255.255.255.0
 Router: 172.16.40.2
 `
 		}
@@ -156,6 +166,9 @@ Router: 172.16.40.2
 	}
 	if result.State.IPv4.Address != "172.16.40.141" {
 		t.Fatalf("address = %q", result.State.IPv4.Address)
+	}
+	if result.State.IPv4.SubnetMask != "255.255.255.0" {
+		t.Fatalf("subnet mask = %q", result.State.IPv4.SubnetMask)
 	}
 	if !contains(runner.calls, manualCall) {
 		t.Fatalf("missing call %q in %v", manualCall, runner.calls)
@@ -189,12 +202,31 @@ Router: 192.168.101.1
 `
 
 	_, err := manager.Apply("blacklake-proxy")
-	if err == nil || !strings.Contains(err.Error(), "不在 blacklake 的目标网段") || !strings.Contains(err.Error(), "手动连接") {
+	if err == nil || !strings.Contains(err.Error(), "无法访问 172.16.40.2 网关") || !strings.Contains(err.Error(), "手动连接") {
 		t.Fatalf("err = %v", err)
 	}
 	for _, call := range runner.calls {
 		if strings.HasPrefix(call, "sudo ") || strings.Contains(call, " -setairportnetwork ") {
 			t.Fatalf("unexpected privileged or Wi-Fi switch call: %s", call)
+		}
+	}
+}
+
+func TestApplyBuiltinRejectsUnmanagedManualConfiguration(t *testing.T) {
+	manager, runner := newTestManager(t)
+	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = `Manual Configuration
+IP address: 172.16.40.141
+Subnet mask: 255.255.255.0
+Router: 172.16.40.2
+`
+
+	_, err := manager.Apply("blacklake-proxy")
+	if err == nil || !strings.Contains(err.Error(), "不是 DHCP 模式") || !strings.Contains(err.Error(), "siti net reset") {
+		t.Fatalf("err = %v", err)
+	}
+	for _, call := range runner.calls {
+		if strings.HasPrefix(call, "sudo ") {
+			t.Fatalf("unexpected privileged call: %s", call)
 		}
 	}
 }
@@ -237,11 +269,8 @@ Router: 172.16.40.2
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Changed {
-		t.Fatal("expected reset to change state")
-	}
-	if result.Service != "Office Wireless" {
-		t.Fatalf("service = %q", result.Service)
+	if result.Service != "Office Wireless" || result.Device != "en7" {
+		t.Fatalf("result = %+v", result)
 	}
 	wantLive := LiveStatus{
 		Mode:       "DHCP Configuration",
@@ -254,7 +283,7 @@ Router: 172.16.40.2
 	}
 	want := []string{
 		"sudo -v",
-		"sudo " + manager.networkSetup + " -setdhcp Office Wireless Empty",
+		"sudo " + manager.networkSetup + " -setdhcp Office Wireless",
 		"sudo " + manager.networkSetup + " -setdnsservers Office Wireless Empty",
 	}
 	for _, call := range want {
@@ -355,7 +384,7 @@ func TestApplyWaitsForDefaultRoute(t *testing.T) {
 func configureSuccessfulRollback(manager *Manager, runner *fakeRunner) {
 	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
 	dnsKey := commandKey(manager.networkSetup, "-getdnsservers", "Office Wireless")
-	dhcpCall := "sudo " + manager.networkSetup + " -setdhcp Office Wireless Empty"
+	dhcpCall := "sudo " + manager.networkSetup + " -setdhcp Office Wireless"
 	dnsResetCall := "sudo " + manager.networkSetup + " -setdnsservers Office Wireless Empty"
 	previousOnRun := runner.onRun
 	runner.onRun = func(call string) {
@@ -371,14 +400,45 @@ func configureSuccessfulRollback(manager *Manager, runner *fakeRunner) {
 	}
 }
 
-func TestResetWithoutActiveProfileIsNoOp(t *testing.T) {
+func TestResetWithoutActiveProfileStillForcesAutomaticNetwork(t *testing.T) {
 	manager, runner := newTestManager(t)
+	configureSuccessfulRollback(manager, runner)
+	runner.calls = nil
+
 	result, err := manager.Reset()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Changed || len(runner.calls) != 0 {
-		t.Fatalf("result = %+v, calls = %v", result, runner.calls)
+	if result.Service != "Office Wireless" || result.Device != "en7" || result.Live.Mode != "DHCP Configuration" {
+		t.Fatalf("result = %+v", result)
+	}
+	want := []string{
+		"sudo -v",
+		"sudo " + manager.networkSetup + " -setdhcp Office Wireless",
+		"sudo " + manager.networkSetup + " -setdnsservers Office Wireless Empty",
+	}
+	for _, call := range want {
+		if !contains(runner.calls, call) {
+			t.Fatalf("missing call %q in %v", call, runner.calls)
+		}
+	}
+}
+
+func TestResetIgnoresCorruptActiveState(t *testing.T) {
+	manager, runner := newTestManager(t)
+	if err := os.MkdirAll(manager.ConfigDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(manager.ConfigDir, activeFileName), []byte("not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	configureSuccessfulRollback(manager, runner)
+
+	if _, err := manager.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(manager.ConfigDir, activeFileName)); !os.IsNotExist(err) {
+		t.Fatalf("active state still exists: %v", err)
 	}
 }
 

@@ -50,7 +50,7 @@ var netApplyCmd = &cobra.Command{
 
 var netResetCmd = &cobra.Command{
 	Use:   "reset",
-	Short: "恢复 DHCP 和自动 DNS",
+	Short: "强制恢复 DHCP 和自动 DNS",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manager, err := network.NewManager()
@@ -61,12 +61,8 @@ var netResetCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if !result.Changed {
-			fmt.Fprintln(cmd.OutOrStdout(), "✓ 当前没有 siti 管理的网络配置")
-			return nil
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), "✓ 已恢复自动网络配置")
-		fmt.Fprintf(cmd.OutOrStdout(), "  service: %s (%s)\n", result.Service, result.State.Device)
+		fmt.Fprintln(cmd.OutOrStdout(), "✓ 已强制恢复自动网络配置")
+		fmt.Fprintf(cmd.OutOrStdout(), "  service: %s (%s)\n", result.Service, result.Device)
 		fmt.Fprintln(cmd.OutOrStdout(), "  IPv4: DHCP")
 		if result.Live.Address != "" {
 			address := result.Live.Address

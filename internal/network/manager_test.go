@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 type fakeRunner struct {
@@ -16,7 +15,6 @@ type fakeRunner struct {
 	runErrors  map[string]error
 	outputErrs map[string]error
 	onRun      func(string)
-	onOutput   func(string)
 }
 
 func (f *fakeRunner) Run(name string, args ...string) error {
@@ -31,9 +29,6 @@ func (f *fakeRunner) Run(name string, args ...string) error {
 func (f *fakeRunner) Output(name string, args ...string) (string, error) {
 	key := commandKey(name, args...)
 	f.calls = append(f.calls, key)
-	if f.onOutput != nil {
-		f.onOutput(key)
-	}
 	return f.outputs[key], f.outputErrs[key]
 }
 
@@ -76,8 +71,6 @@ Router: 172.16.40.2
 		goos:         "darwin",
 		networkSetup: networkSetup,
 		runner:       runner,
-		sleep:        func(time.Duration) {},
-		wifiAttempts: 2,
 	}, runner
 }
 
@@ -110,6 +103,7 @@ func TestApplyUsesBuiltinProfileAndRenamedWiFiService(t *testing.T) {
 func TestApplyBuiltinUsesCurrentWiFiAddress(t *testing.T) {
 	manager, runner := newTestManager(t)
 	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
+	switchCall := "sudo " + manager.networkSetup + " -setairportnetwork en7 blacklake"
 	runner.outputs[infoKey] = `DHCP Configuration
 IP address: 172.16.40.141
 Subnet mask: 255.255.255.0
@@ -136,6 +130,9 @@ Router: 172.16.40.2
 	if !contains(runner.calls, manualCall) {
 		t.Fatalf("missing call %q in %v", manualCall, runner.calls)
 	}
+	if contains(runner.calls, switchCall) {
+		t.Fatalf("unexpected Wi-Fi switch: %v", runner.calls)
+	}
 }
 
 func TestApplyBuiltinRejectsMissingCurrentWiFiAddress(t *testing.T) {
@@ -143,7 +140,7 @@ func TestApplyBuiltinRejectsMissingCurrentWiFiAddress(t *testing.T) {
 	runner.outputs[commandKey(manager.networkSetup, "-getinfo", "Office Wireless")] = "DHCP Configuration\n"
 
 	_, err := manager.Apply("blacklake-proxy")
-	if err == nil || !strings.Contains(err.Error(), "未获取到目标网段") {
+	if err == nil || !strings.Contains(err.Error(), "没有可用的 IPv4") || !strings.Contains(err.Error(), "手动连接") {
 		t.Fatalf("err = %v", err)
 	}
 	for _, call := range runner.calls {
@@ -162,71 +159,13 @@ Router: 192.168.101.1
 `
 
 	_, err := manager.Apply("blacklake-proxy")
-	if err == nil || !strings.Contains(err.Error(), "未获取到目标网段") || !strings.Contains(err.Error(), "172.16.40.2") {
+	if err == nil || !strings.Contains(err.Error(), "不在 blacklake 的目标网段") || !strings.Contains(err.Error(), "手动连接") {
 		t.Fatalf("err = %v", err)
 	}
 	for _, call := range runner.calls {
-		if strings.Contains(call, " -setmanual ") || strings.Contains(call, " -setdnsservers ") {
-			t.Fatalf("unexpected network configuration call: %s", call)
+		if strings.HasPrefix(call, "sudo ") || strings.Contains(call, " -setairportnetwork ") {
+			t.Fatalf("unexpected privileged or Wi-Fi switch call: %s", call)
 		}
-	}
-}
-
-func TestApplyBuiltinSwitchesToBlacklakeBeforeUsingDHCPAddress(t *testing.T) {
-	manager, runner := newTestManager(t)
-	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
-	runner.outputs[infoKey] = `DHCP Configuration
-IP address: 192.168.101.143
-Subnet mask: 255.255.255.0
-Router: 192.168.101.1
-`
-	switchCall := "sudo " + manager.networkSetup + " -setairportnetwork en7 blacklake"
-	manualCall := "sudo " + manager.networkSetup + " -setmanual Office Wireless 172.16.40.229 255.255.248.0 172.16.40.2"
-	runner.onOutput = func(call string) {
-		if call == switchCall {
-			runner.outputs[infoKey] = `DHCP Configuration
-IP address: 172.16.40.229
-Subnet mask: 255.255.255.0
-Router: 172.16.40.1
-`
-		}
-	}
-	runner.onRun = func(call string) {
-		if call == manualCall {
-			runner.outputs[infoKey] = `Manual Configuration
-IP address: 172.16.40.229
-Subnet mask: 255.255.248.0
-Router: 172.16.40.2
-`
-		}
-	}
-
-	result, err := manager.Apply("blacklake-proxy")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.State.SSID != "blacklake" || result.State.IPv4.Address != "172.16.40.229" {
-		t.Fatalf("state = %+v", result.State)
-	}
-	if !contains(runner.calls, switchCall) || !contains(runner.calls, manualCall) {
-		t.Fatalf("calls = %v", runner.calls)
-	}
-	if indexOf(runner.calls, "sudo -v") > indexOf(runner.calls, switchCall) || indexOf(runner.calls, switchCall) > indexOf(runner.calls, manualCall) {
-		t.Fatalf("Wi-Fi switch call order is wrong: %v", runner.calls)
-	}
-}
-
-func TestApplyBuiltinExplainsMissingSavedWiFi(t *testing.T) {
-	manager, runner := newTestManager(t)
-	switchCall := "sudo " + manager.networkSetup + " -setairportnetwork en7 blacklake"
-	runner.outputs[switchCall] = "Failed to join network blacklake.\nError: -3900 tmpErr\n"
-
-	_, err := manager.Apply("blacklake-proxy")
-	if err == nil || !strings.Contains(err.Error(), "切换 Wi-Fi") || !strings.Contains(err.Error(), "连接并保存") {
-		t.Fatalf("err = %v", err)
-	}
-	if !contains(runner.calls, "sudo -v") {
-		t.Fatalf("missing sudo authorization: %v", runner.calls)
 	}
 }
 
@@ -245,8 +184,8 @@ func TestApplyIsIdempotentWhenProfileMatches(t *testing.T) {
 		t.Fatal("expected already applied")
 	}
 	for _, call := range runner.calls {
-		if strings.Contains(call, " -setmanual ") || strings.Contains(call, " -setdnsservers ") {
-			t.Fatalf("unexpected configuration call: %s", call)
+		if strings.HasPrefix(call, "sudo ") {
+			t.Fatalf("unexpected privileged call: %s", call)
 		}
 	}
 }
@@ -361,13 +300,4 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
-}
-
-func indexOf(values []string, target string) int {
-	for i, value := range values {
-		if value == target {
-			return i
-		}
-	}
-	return -1
 }

@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"time"
 )
 
 const defaultNetworkSetup = "/usr/sbin/networksetup"
@@ -44,8 +43,6 @@ type Manager struct {
 	goos         string
 	networkSetup string
 	runner       commandRunner
-	sleep        func(time.Duration)
-	wifiAttempts int
 }
 
 type ApplyResult struct {
@@ -85,8 +82,6 @@ func NewManager() (*Manager, error) {
 		goos:         runtime.GOOS,
 		networkSetup: defaultNetworkSetup,
 		runner:       execCommandRunner{},
-		sleep:        time.Sleep,
-		wifiAttempts: 30,
 	}, nil
 }
 
@@ -102,15 +97,8 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	privileged := false
-	if profile.CurrentAddress && profile.SSID != "" {
-		if err := m.runner.Run("sudo", "-v"); err != nil {
-			return ApplyResult{}, fmt.Errorf("获取管理员权限: %w", err)
-		}
-		privileged = true
-	}
 	if profile.CurrentAddress {
-		live, err := m.prepareCurrentAddress(profile, device, service)
+		live, err := m.prepareCurrentAddress(profile, service)
 		if err != nil {
 			return ApplyResult{}, err
 		}
@@ -138,10 +126,8 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		}
 	}
 
-	if !privileged {
-		if err := m.runner.Run("sudo", "-v"); err != nil {
-			return ApplyResult{}, fmt.Errorf("获取管理员权限: %w", err)
-		}
+	if err := m.runner.Run("sudo", "-v"); err != nil {
+		return ApplyResult{}, fmt.Errorf("获取管理员权限: %w", err)
 	}
 	if hasActive && active.Profile != name {
 		if _, _, err := m.resetState(active); err != nil {
@@ -187,51 +173,21 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	return ApplyResult{State: state}, nil
 }
 
-func (m *Manager) prepareCurrentAddress(profile Profile, device, service string) (LiveStatus, error) {
-	if profile.SSID == "" {
-		live, err := m.readLive(service)
-		if err != nil {
-			return LiveStatus{}, fmt.Errorf("读取当前 Wi-Fi 地址: %w", err)
-		}
-		if !isIPv4(live.Address) {
-			return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 没有可用的 IPv4 地址")
-		}
-		return live, nil
-	}
-
-	// macOS may hide the current SSID from networksetup when Location Services
-	// access is unavailable. Requesting the saved network directly is both
-	// idempotent and more reliable than trying to infer whether a switch is needed.
-	if err := m.switchWiFi(device, profile.SSID); err != nil {
-		return LiveStatus{}, fmt.Errorf("切换 Wi-Fi 到 %q: %w（请先在系统 Wi-Fi 中连接并保存该网络）", profile.SSID, err)
-	}
-
-	attempts := m.wifiAttempts
-	if attempts <= 0 {
-		attempts = 1
-	}
-	for attempt := 0; attempt < attempts; attempt++ {
-		live, liveErr := m.readLive(service)
-		if liveErr == nil && addressSharesSubnet(live.Address, profile.IPv4.Gateway, profile.IPv4.SubnetMask) {
-			return live, nil
-		}
-		if attempt+1 < attempts && m.sleep != nil {
-			m.sleep(500 * time.Millisecond)
-		}
-	}
-	return LiveStatus{}, fmt.Errorf("已请求切换到 Wi-Fi %q，但未获取到目标网段的 IPv4 地址（期望与 %s/%s 同网段）", profile.SSID, profile.IPv4.Gateway, profile.IPv4.SubnetMask)
-}
-
-func (m *Manager) switchWiFi(device, ssid string) error {
-	out, err := m.runner.Output("sudo", m.networkSetup, "-setairportnetwork", device, ssid)
+func (m *Manager) prepareCurrentAddress(profile Profile, service string) (LiveStatus, error) {
+	live, err := m.readLive(service)
 	if err != nil {
-		return err
+		return LiveStatus{}, fmt.Errorf("读取当前 Wi-Fi 地址: %w", err)
 	}
-	message := strings.TrimSpace(out)
-	if strings.Contains(strings.ToLower(message), "failed") || strings.Contains(message, "Error:") {
-		return fmt.Errorf("%s", message)
+	if !isIPv4(live.Address) {
+		if profile.SSID != "" {
+			return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 没有可用的 IPv4 地址；请先手动连接 %q", profile.SSID)
+		}
+		return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 没有可用的 IPv4 地址")
 	}
-	return nil
+	if profile.SSID != "" && !addressSharesSubnet(live.Address, profile.IPv4.Gateway, profile.IPv4.SubnetMask) {
+		return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 地址 %s 不在 %s 的目标网段（%s/%s）；请先手动连接 %q", live.Address, profile.SSID, profile.IPv4.Gateway, profile.IPv4.SubnetMask, profile.SSID)
+	}
+	return live, nil
 }
 
 func addressSharesSubnet(address, gateway, subnetMask string) bool {

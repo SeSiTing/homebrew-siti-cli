@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-14 — v2.0.38
+
+- `siti net apply blacklake-proxy` 回归只管理 IPv4、网关和 DNS，不再尝试切换受保护的 Wi-Fi
+- 已在 `blacklake` 目标网段时直接保留当前地址；不在目标网段时于提权和修改前提示手动连接
+
 ## 2026-08-13 — v2.0.37
 
 - 明确 `siti proxy on/off` 用于 Clash Verge 与软路由的日常切换，终端代理同时覆盖 Git、Homebrew 和 curl

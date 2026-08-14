@@ -236,14 +236,9 @@ func (m *Manager) waitForProfile(service string, profile Profile) (LiveStatus, e
 }
 
 func (m *Manager) verifyConnectivity(profile Profile, device string) (ApplyChecks, error) {
-	routeOut, err := m.runner.Output(m.routeCommand, "-n", "get", "default")
+	gateway, err := m.waitForDefaultRoute(profile.IPv4.Gateway, device)
 	if err != nil {
-		return ApplyChecks{}, fmt.Errorf("读取默认路由: %w", err)
-	}
-	gateway, routeDevice := parseDefaultRoute(routeOut)
-	if gateway != profile.IPv4.Gateway || routeDevice != device {
-		return ApplyChecks{}, fmt.Errorf("默认路由不正确（当前: %s via %s，预期: %s via %s）",
-			displayValue(gateway), displayValue(routeDevice), profile.IPv4.Gateway, device)
+		return ApplyChecks{}, err
 	}
 
 	dnsServer := profile.DNS[0]
@@ -262,6 +257,31 @@ func (m *Manager) verifyConnectivity(profile Profile, device string) (ApplyCheck
 	}
 
 	return ApplyChecks{Gateway: gateway, DNS: dnsServer, Internet: connectivityHost}, nil
+}
+
+func (m *Manager) waitForDefaultRoute(expectedGateway, expectedDevice string) (string, error) {
+	const attempts = 16
+	var gateway string
+	var device string
+	var lastErr error
+	for attempt := 0; attempt < attempts; attempt++ {
+		routeOut, err := m.runner.Output(m.routeCommand, "-n", "get", "default")
+		if err == nil {
+			gateway, device = parseDefaultRoute(routeOut)
+			if gateway == expectedGateway && device == expectedDevice {
+				return gateway, nil
+			}
+		}
+		lastErr = err
+		if attempt < attempts-1 {
+			m.sleep(500 * time.Millisecond)
+		}
+	}
+	if gateway == "" && device == "" && lastErr != nil {
+		return "", fmt.Errorf("读取默认路由: %w", lastErr)
+	}
+	return "", fmt.Errorf("默认路由不正确（当前: %s via %s，预期: %s via %s）",
+		displayValue(gateway), displayValue(device), expectedGateway, expectedDevice)
 }
 
 func connectivityDigArgs(dnsServer string) []string {

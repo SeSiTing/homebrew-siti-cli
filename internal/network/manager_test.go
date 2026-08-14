@@ -11,11 +11,12 @@ import (
 )
 
 type fakeRunner struct {
-	calls      []string
-	outputs    map[string]string
-	runErrors  map[string]error
-	outputErrs map[string]error
-	onRun      func(string)
+	calls           []string
+	outputs         map[string]string
+	outputSequences map[string][]string
+	runErrors       map[string]error
+	outputErrs      map[string]error
+	onRun           func(string)
 }
 
 func (f *fakeRunner) Run(name string, args ...string) error {
@@ -30,6 +31,10 @@ func (f *fakeRunner) Run(name string, args ...string) error {
 func (f *fakeRunner) Output(name string, args ...string) (string, error) {
 	key := commandKey(name, args...)
 	f.calls = append(f.calls, key)
+	if sequence := f.outputSequences[key]; len(sequence) > 0 {
+		f.outputSequences[key] = sequence[1:]
+		return sequence[0], nil
+	}
 	return f.outputs[key], f.outputErrs[key]
 }
 
@@ -76,8 +81,9 @@ destination: default
 			digCall:  "20.205.243.166\n",
 			curlCall: "",
 		},
-		runErrors:  map[string]error{},
-		outputErrs: map[string]error{},
+		outputSequences: map[string][]string{},
+		runErrors:       map[string]error{},
+		outputErrs:      map[string]error{},
 	}
 	return &Manager{
 		ConfigDir:    dir,
@@ -325,6 +331,26 @@ func TestApplyRollsBackWhenConnectivityCheckFails(t *testing.T) {
 	}
 }
 
+func TestApplyWaitsForDefaultRoute(t *testing.T) {
+	manager, runner := newTestManager(t)
+	routeCall := commandKey(manager.routeCommand, "-n", "get", "default")
+	runner.outputSequences[routeCall] = []string{
+		"",
+		"gateway: 172.16.40.1\ninterface: en7\n",
+	}
+
+	result, err := manager.Apply("blacklake-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Checks.Gateway != "172.16.40.2" {
+		t.Fatalf("checks = %+v", result.Checks)
+	}
+	if got := countValue(runner.calls, routeCall); got != 3 {
+		t.Fatalf("route checks = %d, calls = %v", got, runner.calls)
+	}
+}
+
 func configureSuccessfulRollback(manager *Manager, runner *fakeRunner) {
 	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
 	dnsKey := commandKey(manager.networkSetup, "-getdnsservers", "Office Wireless")
@@ -406,4 +432,14 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func countValue(values []string, target string) int {
+	count := 0
+	for _, value := range values {
+		if value == target {
+			count++
+		}
+	}
+	return count
 }

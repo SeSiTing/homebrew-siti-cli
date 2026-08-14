@@ -33,16 +33,17 @@ var netApplyCmd = &cobra.Command{
 		}
 		if result.AlreadyApplied {
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ network profile %s 已生效\n", result.State.Profile)
-			return nil
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ 已应用 network profile %s\n", result.State.Profile)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "✓ 已应用 network profile %s\n", result.State.Profile)
 		fmt.Fprintf(cmd.OutOrStdout(), "  service: %s (%s)\n", result.State.Service, result.State.Device)
 		if result.State.SSID != "" {
 			fmt.Fprintf(cmd.OutOrStdout(), "  Wi-Fi: %s\n", result.State.SSID)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "  IPv4: %s/%s\n", result.State.IPv4.Address, result.State.IPv4.SubnetMask)
-		fmt.Fprintf(cmd.OutOrStdout(), "  gateway: %s\n", result.State.IPv4.Gateway)
-		fmt.Fprintf(cmd.OutOrStdout(), "  DNS: %s\n", strings.Join(result.State.DNS, ", "))
+		fmt.Fprintf(cmd.OutOrStdout(), "  IPv4: %s/%s\n", result.Live.Address, result.Live.SubnetMask)
+		fmt.Fprintf(cmd.OutOrStdout(), "  gateway: %s (verified)\n", result.Checks.Gateway)
+		fmt.Fprintf(cmd.OutOrStdout(), "  DNS: %s (verified)\n", strings.Join(result.Live.DNS, ", "))
+		fmt.Fprintf(cmd.OutOrStdout(), "  internet: %s reachable\n", result.Checks.Internet)
 		return nil
 	},
 }

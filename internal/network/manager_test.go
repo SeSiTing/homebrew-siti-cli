@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakeRunner struct {
@@ -40,6 +41,11 @@ func newTestManager(t *testing.T) (*Manager, *fakeRunner) {
 	t.Helper()
 	dir := t.TempDir()
 	networkSetup := filepath.Join(dir, "networksetup")
+	routeCommand := filepath.Join(dir, "route")
+	digCommand := filepath.Join(dir, "dig")
+	curlCommand := filepath.Join(dir, "curl")
+	digCall := commandKey(digCommand, connectivityDigArgs("172.16.40.2")...)
+	curlCall := commandKey(curlCommand, connectivityCurlArgs("20.205.243.166")...)
 	if err := os.WriteFile(networkSetup, []byte("test"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +68,13 @@ Subnet mask: 255.255.248.0
 Router: 172.16.40.2
 `,
 			commandKey(networkSetup, "-getdnsservers", "Office Wireless"): "172.16.40.2\n",
+			commandKey(routeCommand, "-n", "get", "default"): `   route to: default
+destination: default
+       gateway: 172.16.40.2
+     interface: en7
+`,
+			digCall:  "20.205.243.166\n",
+			curlCall: "",
 		},
 		runErrors:  map[string]error{},
 		outputErrs: map[string]error{},
@@ -70,6 +83,10 @@ Router: 172.16.40.2
 		ConfigDir:    dir,
 		goos:         "darwin",
 		networkSetup: networkSetup,
+		routeCommand: routeCommand,
+		digCommand:   digCommand,
+		curlCommand:  curlCommand,
+		sleep:        func(time.Duration) {},
 		runner:       runner,
 	}, runner
 }
@@ -82,6 +99,12 @@ func TestApplyUsesBuiltinProfileAndRenamedWiFiService(t *testing.T) {
 	}
 	if result.State.Device != "en7" || result.State.Service != "Office Wireless" {
 		t.Fatalf("state = %+v", result.State)
+	}
+	if result.Live.Address != "172.16.40.100" || result.Live.DNS[0] != "172.16.40.2" {
+		t.Fatalf("live = %+v", result.Live)
+	}
+	if result.Checks.Gateway != "172.16.40.2" || result.Checks.DNS != "172.16.40.2" || result.Checks.Internet != connectivityHost {
+		t.Fatalf("checks = %+v", result.Checks)
 	}
 
 	wantRuns := []string{
@@ -254,6 +277,73 @@ func TestApplyRollsBackWhenDNSFails(t *testing.T) {
 	}
 }
 
+func TestApplyRollsBackWhenConnectivityCheckFails(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(*Manager, *fakeRunner)
+		wantErr string
+	}{
+		{
+			name: "default route",
+			prepare: func(manager *Manager, runner *fakeRunner) {
+				runner.outputs[commandKey(manager.routeCommand, "-n", "get", "default")] = "gateway: 172.16.40.1\ninterface: en7\n"
+			},
+			wantErr: "默认路由不正确",
+		},
+		{
+			name: "DNS query",
+			prepare: func(manager *Manager, runner *fakeRunner) {
+				digCall := commandKey(manager.digCommand, connectivityDigArgs("172.16.40.2")...)
+				runner.outputErrs[digCall] = errors.New("query timeout")
+			},
+			wantErr: "DNS 172.16.40.2 查询失败",
+		},
+		{
+			name: "internet",
+			prepare: func(manager *Manager, runner *fakeRunner) {
+				curlCall := commandKey(manager.curlCommand, connectivityCurlArgs("20.205.243.166")...)
+				runner.outputErrs[curlCall] = errors.New("connection timeout")
+			},
+			wantErr: "无法通过软路由访问 github.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager, runner := newTestManager(t)
+			configureSuccessfulRollback(manager, runner)
+			tt.prepare(manager, runner)
+
+			_, err := manager.Apply("blacklake-proxy")
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) || !strings.Contains(err.Error(), "已恢复 DHCP") {
+				t.Fatalf("err = %v", err)
+			}
+			if _, active, readErr := ReadActive(manager.ConfigDir); readErr != nil || active {
+				t.Fatalf("active = %v, err = %v", active, readErr)
+			}
+		})
+	}
+}
+
+func configureSuccessfulRollback(manager *Manager, runner *fakeRunner) {
+	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
+	dnsKey := commandKey(manager.networkSetup, "-getdnsservers", "Office Wireless")
+	dhcpCall := "sudo " + manager.networkSetup + " -setdhcp Office Wireless Empty"
+	dnsResetCall := "sudo " + manager.networkSetup + " -setdnsservers Office Wireless Empty"
+	previousOnRun := runner.onRun
+	runner.onRun = func(call string) {
+		if previousOnRun != nil {
+			previousOnRun(call)
+		}
+		if call == dhcpCall {
+			runner.outputs[infoKey] = "DHCP Configuration\nIP address: 172.16.40.101\nSubnet mask: 255.255.240.0\nRouter: 172.16.40.1\n"
+		}
+		if call == dnsResetCall {
+			runner.outputs[dnsKey] = "There aren't any DNS Servers set on Office Wireless.\n"
+		}
+	}
+}
+
 func TestResetWithoutActiveProfileIsNoOp(t *testing.T) {
 	manager, runner := newTestManager(t)
 	result, err := manager.Reset()
@@ -290,6 +380,22 @@ func TestAddressSharesSubnet(t *testing.T) {
 	}
 	if addressSharesSubnet("192.168.101.143", "172.16.40.2", "255.255.248.0") {
 		t.Fatal("unexpected subnet match")
+	}
+}
+
+func TestParseDefaultRoute(t *testing.T) {
+	gateway, device := parseDefaultRoute("   gateway: 172.16.40.2\n interface: en0\n")
+	if gateway != "172.16.40.2" || device != "en0" {
+		t.Fatalf("gateway = %q, device = %q", gateway, device)
+	}
+}
+
+func TestFirstIPv4(t *testing.T) {
+	if got := firstIPv4("github.com.\n20.205.243.166\n"); got != "20.205.243.166" {
+		t.Fatalf("got %q", got)
+	}
+	if got := firstIPv4("github.com.\n"); got != "" {
+		t.Fatalf("got %q", got)
 	}
 }
 

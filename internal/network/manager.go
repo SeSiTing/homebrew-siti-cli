@@ -7,9 +7,17 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const defaultNetworkSetup = "/usr/sbin/networksetup"
+
+const (
+	defaultRouteCommand = "/sbin/route"
+	defaultDigCommand   = "/usr/bin/dig"
+	defaultCurlCommand  = "/usr/bin/curl"
+	connectivityHost    = "github.com"
+)
 
 type commandRunner interface {
 	Run(name string, args ...string) error
@@ -42,12 +50,24 @@ type Manager struct {
 	ConfigDir    string
 	goos         string
 	networkSetup string
+	routeCommand string
+	digCommand   string
+	curlCommand  string
+	sleep        func(time.Duration)
 	runner       commandRunner
 }
 
 type ApplyResult struct {
 	State          ActiveState
+	Live           LiveStatus
+	Checks         ApplyChecks
 	AlreadyApplied bool
+}
+
+type ApplyChecks struct {
+	Gateway  string
+	DNS      string
+	Internet string
 }
 
 type ResetResult struct {
@@ -81,6 +101,10 @@ func NewManager() (*Manager, error) {
 		ConfigDir:    dir,
 		goos:         runtime.GOOS,
 		networkSetup: defaultNetworkSetup,
+		routeCommand: defaultRouteCommand,
+		digCommand:   defaultDigCommand,
+		curlCommand:  defaultCurlCommand,
+		sleep:        time.Sleep,
 		runner:       execCommandRunner{},
 	}, nil
 }
@@ -122,7 +146,10 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	if hasActive && active.Profile == name {
 		live, err := m.readLive(service)
 		if err == nil && matchesProfile(live, profile) {
-			return ApplyResult{State: state, AlreadyApplied: true}, nil
+			checks, verifyErr := m.verifyConnectivity(profile, device)
+			if verifyErr == nil {
+				return ApplyResult{State: state, Live: live, Checks: checks, AlreadyApplied: true}, nil
+			}
 		}
 	}
 
@@ -158,19 +185,101 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		}
 		return ApplyResult{}, fmt.Errorf("设置 DNS: %w；自动回滚失败: %v", err, rollbackErr)
 	}
-	live, err := m.readLive(service)
+	live, err := m.waitForProfile(service, profile)
 	if err != nil {
-		return ApplyResult{}, fmt.Errorf("读回网络配置: %w", err)
-	}
-	if !matchesProfile(live, profile) {
 		_, rollbackErr := m.resetService(service)
 		if rollbackErr == nil {
 			_ = RemoveActive(m.ConfigDir)
-			return ApplyResult{}, fmt.Errorf("网络配置读回结果与 profile 不一致（已恢复 DHCP 和自动 DNS）")
+			return ApplyResult{}, fmt.Errorf("%w（已恢复 DHCP 和自动 DNS）", err)
 		}
-		return ApplyResult{}, fmt.Errorf("网络配置读回结果与 profile 不一致；自动回滚失败: %v", rollbackErr)
+		return ApplyResult{}, fmt.Errorf("%w；自动回滚失败: %v", err, rollbackErr)
 	}
-	return ApplyResult{State: state}, nil
+	checks, err := m.verifyConnectivity(profile, device)
+	if err != nil {
+		_, rollbackErr := m.resetService(service)
+		if rollbackErr == nil {
+			_ = RemoveActive(m.ConfigDir)
+			return ApplyResult{}, fmt.Errorf("网络可用性校验失败: %w（已恢复 DHCP 和自动 DNS）", err)
+		}
+		return ApplyResult{}, fmt.Errorf("网络可用性校验失败: %w；自动回滚失败: %v", err, rollbackErr)
+	}
+	return ApplyResult{State: state, Live: live, Checks: checks}, nil
+}
+
+func (m *Manager) waitForProfile(service string, profile Profile) (LiveStatus, error) {
+	const attempts = 6
+	var last LiveStatus
+	var lastErr error
+	stableReads := 0
+	for attempt := 0; attempt < attempts; attempt++ {
+		live, err := m.readLive(service)
+		if err == nil && matchesProfile(live, profile) {
+			last = live
+			stableReads++
+			if stableReads == 2 {
+				return live, nil
+			}
+		} else {
+			stableReads = 0
+			last = live
+			lastErr = err
+		}
+		if attempt < attempts-1 {
+			m.sleep(500 * time.Millisecond)
+		}
+	}
+	if lastErr != nil {
+		return LiveStatus{}, fmt.Errorf("读回网络配置: %w", lastErr)
+	}
+	return LiveStatus{}, fmt.Errorf("网络配置未稳定生效（当前 IPv4: %s/%s, gateway: %s, DNS: %s）",
+		last.Address, last.SubnetMask, last.Gateway, displayDNS(last.DNS))
+}
+
+func (m *Manager) verifyConnectivity(profile Profile, device string) (ApplyChecks, error) {
+	routeOut, err := m.runner.Output(m.routeCommand, "-n", "get", "default")
+	if err != nil {
+		return ApplyChecks{}, fmt.Errorf("读取默认路由: %w", err)
+	}
+	gateway, routeDevice := parseDefaultRoute(routeOut)
+	if gateway != profile.IPv4.Gateway || routeDevice != device {
+		return ApplyChecks{}, fmt.Errorf("默认路由不正确（当前: %s via %s，预期: %s via %s）",
+			displayValue(gateway), displayValue(routeDevice), profile.IPv4.Gateway, device)
+	}
+
+	dnsServer := profile.DNS[0]
+	digOut, err := m.runner.Output(m.digCommand, connectivityDigArgs(dnsServer)...)
+	if err != nil {
+		return ApplyChecks{}, fmt.Errorf("DNS %s 查询失败: %w", dnsServer, err)
+	}
+	resolvedIP := firstIPv4(digOut)
+	if resolvedIP == "" {
+		return ApplyChecks{}, fmt.Errorf("DNS %s 无法解析 %s", dnsServer, connectivityHost)
+	}
+
+	_, err = m.runner.Output(m.curlCommand, connectivityCurlArgs(resolvedIP)...)
+	if err != nil {
+		return ApplyChecks{}, fmt.Errorf("无法通过软路由访问 %s: %w", connectivityHost, err)
+	}
+
+	return ApplyChecks{Gateway: gateway, DNS: dnsServer, Internet: connectivityHost}, nil
+}
+
+func connectivityDigArgs(dnsServer string) []string {
+	return []string{"+time=2", "+tries=1", "+short", "@" + dnsServer, connectivityHost, "A"}
+}
+
+func connectivityCurlArgs(resolvedIP string) []string {
+	resolve := fmt.Sprintf("%s:443:%s", connectivityHost, resolvedIP)
+	return []string{
+		"--noproxy", "*",
+		"--connect-timeout", "3",
+		"--max-time", "8",
+		"--silent",
+		"--show-error",
+		"--output", "/dev/null",
+		"--resolve", resolve,
+		"https://" + connectivityHost,
+	}
 }
 
 func (m *Manager) prepareCurrentAddress(profile Profile, service string) (LiveStatus, error) {
@@ -419,6 +528,47 @@ func parseDNS(output string) []string {
 		servers = append(servers, line)
 	}
 	return servers
+}
+
+func parseDefaultRoute(output string) (string, string) {
+	var gateway string
+	var device string
+	for _, raw := range strings.Split(output, "\n") {
+		key, value, ok := strings.Cut(strings.TrimSpace(raw), ":")
+		if !ok {
+			continue
+		}
+		switch strings.TrimSpace(key) {
+		case "gateway":
+			gateway = strings.TrimSpace(value)
+		case "interface":
+			device = strings.TrimSpace(value)
+		}
+	}
+	return gateway, device
+}
+
+func firstIPv4(output string) string {
+	for _, field := range strings.Fields(output) {
+		if ip := net.ParseIP(strings.TrimSpace(field)); ip != nil && ip.To4() != nil {
+			return ip.String()
+		}
+	}
+	return ""
+}
+
+func displayDNS(servers []string) string {
+	if len(servers) == 0 {
+		return "none"
+	}
+	return strings.Join(servers, ", ")
+}
+
+func displayValue(value string) string {
+	if value == "" {
+		return "none"
+	}
+	return value
 }
 
 func matchesProfile(live LiveStatus, profile Profile) bool {

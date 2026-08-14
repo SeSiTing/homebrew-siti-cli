@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-08-14 — v2.0.39
+
+- `siti net apply` 等待 IPv4、网关和 DNS 连续读回一致后，再校验实际默认路由、指定 DNS 解析及绕过本机代理的 GitHub 连接
+- 任一可用性检查失败时自动恢复 DHCP 和自动 DNS，不再把“配置已写入”误报为“网络可用”
+- apply 成功信息改为展示系统实际读回值及 gateway、DNS、internet 校验结果
+
 ## 2026-08-14 — v2.0.38
 
 - `siti net apply blacklake-proxy` 回归只管理 IPv4、网关和 DNS，不再尝试切换受保护的 Wi-Fi

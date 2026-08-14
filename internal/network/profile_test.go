@@ -18,6 +18,17 @@ dns:
   - 172.16.40.2
 `
 
+const currentAddressProfileYAML = `version: 1
+interface: wifi
+ssid: blacklake
+ipv4:
+  address: current
+  subnet_mask: 255.255.248.0
+  gateway: 172.16.40.2
+dns:
+  - 172.16.40.2
+`
+
 func writeProfile(t *testing.T, dir, name, content string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -63,6 +74,25 @@ func TestReadBuiltinBlacklakeProxy(t *testing.T) {
 	}
 }
 
+func TestReadProfileSupportsCurrentAddressAndSSID(t *testing.T) {
+	dir := t.TempDir()
+	writeProfile(t, dir, "blacklake-proxy", currentAddressProfileYAML)
+
+	profile, err := ReadProfile(dir, "blacklake-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !profile.CurrentAddress || profile.IPv4.Address != "" {
+		t.Fatalf("address mode = %+v", profile)
+	}
+	if profile.SSID != "blacklake" {
+		t.Fatalf("SSID = %q", profile.SSID)
+	}
+	if profile.IPv4.SubnetMask != "255.255.248.0" || profile.IPv4.Gateway != "172.16.40.2" {
+		t.Fatalf("IPv4 = %+v", profile.IPv4)
+	}
+}
+
 func TestUserProfileOverridesBuiltin(t *testing.T) {
 	dir := t.TempDir()
 	writeProfile(t, dir, "blacklake-proxy", validProfileYAML)
@@ -100,6 +130,17 @@ func TestReadProfileValidatesNetworkValues(t *testing.T) {
 
 	_, err := ReadProfile(dir, "bad-mask")
 	if err == nil || !strings.Contains(err.Error(), "subnet_mask") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestReadProfileRejectsUnknownAddressMode(t *testing.T) {
+	dir := t.TempDir()
+	bad := strings.Replace(currentAddressProfileYAML, "address: current", "address: dynamic", 1)
+	writeProfile(t, dir, "bad-address", bad)
+
+	_, err := ReadProfile(dir, "bad-address")
+	if err == nil || !strings.Contains(err.Error(), "ipv4.address") {
 		t.Fatalf("err = %v", err)
 	}
 }

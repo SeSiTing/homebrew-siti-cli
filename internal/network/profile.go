@@ -46,7 +46,7 @@ type IPv4Config struct {
 type Profile struct {
 	Version        int        `yaml:"version"`
 	Interface      string     `yaml:"interface"`
-	SSID           string     `yaml:"-"`
+	SSID           string     `yaml:"ssid,omitempty"`
 	CurrentAddress bool       `yaml:"-"`
 	IPv4           IPv4Config `yaml:"ipv4"`
 	DNS            []string   `yaml:"dns"`
@@ -103,6 +103,17 @@ func ReadProfile(dir, name string) (Profile, error) {
 	}
 
 	profile.Interface = strings.ToLower(strings.TrimSpace(profile.Interface))
+	profile.SSID = strings.TrimSpace(profile.SSID)
+	profile.IPv4.Address = strings.TrimSpace(profile.IPv4.Address)
+	profile.IPv4.SubnetMask = strings.TrimSpace(profile.IPv4.SubnetMask)
+	profile.IPv4.Gateway = strings.TrimSpace(profile.IPv4.Gateway)
+	if strings.EqualFold(profile.IPv4.Address, "current") {
+		profile.CurrentAddress = true
+		profile.IPv4.Address = ""
+	}
+	for i := range profile.DNS {
+		profile.DNS[i] = strings.TrimSpace(profile.DNS[i])
+	}
 	if err := profile.Validate(); err != nil {
 		return Profile{}, fmt.Errorf("network profile %q: %w", name, err)
 	}

@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-14 — v2.0.41
+
+- network YAML profile 支持 `ssid` 和 `ipv4.address: current`，可以复用当前 DHCP 地址而不在配置文件中写死本机 IP
+- 推荐将 Blacklake 的掩码、网关和 DNS 保存在 `~/.siti/network/blacklake-proxy.yaml`；内置 preset 继续作为无文件时的兼容默认值
+
 ## 2026-08-14 — v2.0.40
 
 - 修复 `siti net apply` 在 macOS 尚未完成默认路由重建时过早判定失败的问题

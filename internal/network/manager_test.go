@@ -129,8 +129,9 @@ func TestApplyUsesBuiltinProfileAndRenamedWiFiService(t *testing.T) {
 	}
 }
 
-func TestApplyBuiltinUsesCurrentWiFiAddress(t *testing.T) {
+func TestApplyUserProfileUsesCurrentWiFiAddress(t *testing.T) {
 	manager, runner := newTestManager(t)
+	writeProfile(t, manager.ConfigDir, "blacklake-proxy", currentAddressProfileYAML)
 	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
 	switchCall := "sudo " + manager.networkSetup + " -setairportnetwork en7 blacklake"
 	runner.outputs[infoKey] = `DHCP Configuration

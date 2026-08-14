@@ -66,7 +66,7 @@ siti port kill 3000 8080    # 释放端口（支持 --dev/--db/--web 预设）
 siti net apply blacklake-proxy  # 在已连接 blacklake 时应用代理网络配置（macOS）
 siti net reset              # 恢复 DHCP 和自动 DNS
 siti net status             # 查看当前 siti 管理的网络配置
-siti net list               # 列出 ~/.siti/network/*.yaml
+siti net list               # 列出内置和 ~/.siti/network/*.yaml profile
 siti net check              # ping baidu/google/github
 siti tunnel up studio       # 后台启动 Studio 本地转发
 siti tunnel status studio   # 查看 tunnel 和本地端口状态
@@ -92,7 +92,24 @@ siti init zsh|bash|fish     # 输出 shell wrapper
 
 ## 网络配置
 
-`siti net` 在 macOS 上通过 `networksetup` 管理网络 profile。`blacklake-proxy` 已内置，无需创建配置文件。执行前需要先在系统 Wi-Fi 中手动连接 `blacklake`；`siti` 不负责切换 Wi-Fi，只校验当前 IPv4 属于 `172.16.40.0/21` 目标网段，然后保留这个本机地址并应用子网掩码 `255.255.248.0`、代理网关与 DNS `172.16.40.2`。DHCP 路由器可以是 `172.16.40.1`，它不是要写入的代理网关：
+`siti net` 在 macOS 上通过 `networksetup` 管理网络 profile。`blacklake-proxy` 带有内置默认值；个人网络参数建议保存在 `~/.siti/network/blacklake-proxy.yaml`，同名文件会覆盖内置 preset，参数变化时无需升级 siti。
+
+`address: current` 表示读取并保留当前 DHCP IPv4，而不是在文件里写死本机地址。执行前需要先在系统 Wi-Fi 中手动连接 `blacklake`；`siti` 不负责切换 Wi-Fi，只校验当前 IPv4 属于目标网段，然后应用 profile 中的子网掩码、网关和 DNS：
+
+```yaml
+# ~/.siti/network/blacklake-proxy.yaml
+version: 1
+interface: wifi
+ssid: blacklake
+
+ipv4:
+  address: current
+  subnet_mask: 255.255.248.0
+  gateway: 172.16.40.2
+
+dns:
+  - 172.16.40.2
+```
 
 ```bash
 siti net apply blacklake-proxy
@@ -100,7 +117,7 @@ siti net status
 siti net reset
 ```
 
-其他 profile 可以存放在 `~/.siti/network/`，例如：
+需要固定本机地址的其他 profile 也可以存放在 `~/.siti/network/`，例如：
 
 ```yaml
 # ~/.siti/network/test-network.yaml
@@ -116,7 +133,7 @@ dns:
   - 172.16.40.2
 ```
 
-不在目标网段时，命令会在提权和修改网络配置前停止，并提示先手动连接 `blacklake`。应用和恢复 IPv4/DNS 配置时，命令会通过 `sudo` 请求授权。同名用户 profile 会覆盖内置 `blacklake-proxy`。
+不在目标网段时，命令会在提权和修改网络配置前停止，并提示先手动连接 profile 标注的 Wi-Fi。应用和恢复 IPv4/DNS 配置时，命令会通过 `sudo` 请求授权。`address: current` 只复用当前地址；子网掩码、网关和 DNS 仍以 profile 文件为准。
 
 程序会自动查找 Wi-Fi 对应的 device 和 network service，不依赖 service 名称必须为 `Wi-Fi`。`reset` 只处理 siti 记录的 active profile，恢复 DHCP 和自动 DNS；不会切回之前的 SSID，也不会恢复应用前的手动网络参数。
 

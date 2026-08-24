@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-08-24 — v2.0.43
+
+- `siti proxy status` 新增本机 Clash 状态，分别识别系统代理和虚拟网卡（TUN）接管方式
+- 区分 Clash 主程序、后台辅助服务和代理核心；仅有后台服务驻留时不再误报为代理开启
+- TUN 检测同时校验运行配置与指定 `utun` 接口，避免把其他 VPN 的虚拟网卡误认为 Clash
+
 ## 2026-08-14 — v2.0.42
 
 - `siti net reset` 不再依赖 active 状态，每次都强制恢复当前 Wi-Fi service 的 DHCP 和自动 DNS，并清除残留或损坏的 active 文件

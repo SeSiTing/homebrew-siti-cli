@@ -168,6 +168,7 @@ var proxyStatusCmd = &cobra.Command{
 
 		systemActive := false
 		systemStatusKnown := runtime.GOOS != "darwin"
+		var systemProxies map[string]string
 		fmt.Println()
 		fmt.Println("macOS 系统代理:")
 		if runtime.GOOS != "darwin" {
@@ -175,6 +176,7 @@ var proxyStatusCmd = &cobra.Command{
 		} else if proxies, err := macOSSystemProxies(); err != nil {
 			fmt.Printf("  ! 检查失败: %v\n", err)
 		} else {
+			systemProxies = proxies
 			systemStatusKnown = true
 			fmt.Printf("  HTTP:  %s\n", proxies["HTTP"])
 			fmt.Printf("  HTTPS: %s\n", proxies["HTTPS"])
@@ -182,9 +184,18 @@ var proxyStatusCmd = &cobra.Command{
 			systemActive = proxies["HTTP"] != "off" || proxies["HTTPS"] != "off" || proxies["SOCKS"] != "off"
 		}
 
+		clashStatus := detectClashRuntime(systemProxies, systemStatusKnown)
 		fmt.Println()
-		if !terminalActive && len(entries) == 0 && !systemActive && systemStatusKnown {
-			fmt.Println("✓ 未检测到活动代理")
+		for _, line := range clashStatusLines(clashStatus) {
+			fmt.Println(line)
+		}
+
+		fmt.Println()
+		if !terminalActive && len(entries) == 0 && !systemActive && !clashStatus.active() && systemStatusKnown {
+			fmt.Println("✓ 未检测到本机代理接管")
+			if clashStatus.helperRunning {
+				fmt.Println("! Clash 后台服务仍在驻留，但未接管流量")
+			}
 			return nil
 		}
 		if !systemStatusKnown {
@@ -205,6 +216,9 @@ var proxyStatusCmd = &cobra.Command{
 		}
 		if systemActive {
 			fmt.Println("! macOS 系统代理仅展示，不会被 siti proxy off 或 proxy git off 修改")
+		}
+		if clashStatus.tunActive {
+			fmt.Println("! Clash 虚拟网卡由 Clash Verge 管理，siti proxy off 不会关闭")
 		}
 		return nil
 	},

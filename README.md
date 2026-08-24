@@ -59,7 +59,7 @@ siti ai clear --client codex            # 恢复 Codex 原有全局配置
 siti proxy on                 # Clash Verge：当前终端开启（Git/Homebrew/curl）
 siti proxy off                # 软路由：当前终端关闭
 siti proxy git on / off       # 高级：只管理持久的 Git 全局代理
-siti proxy status             # 查看终端、Git 和 macOS 系统代理
+siti proxy status             # 查看终端、Git、系统代理及 Clash/TUN 状态
 
 # 端口 / 网络 / 日志
 siti port kill 3000 8080    # 释放端口（支持 --dev/--db/--web 预设）

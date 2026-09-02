@@ -119,6 +119,9 @@ func TestApplyUsesBuiltinProfileAndRenamedWiFiService(t *testing.T) {
 	if result.Live.Address != "172.16.40.100" || result.Live.DNS[0] != "172.16.40.2" {
 		t.Fatalf("live = %+v", result.Live)
 	}
+	if result.Before.Mode != "DHCP Configuration" || result.Before.Gateway != "172.16.40.1" {
+		t.Fatalf("before = %+v", result.Before)
+	}
 	if result.Checks.Gateway != "172.16.40.2" || result.Checks.DNS != "172.16.40.2" || result.Checks.Internet != connectivityHost {
 		t.Fatalf("checks = %+v", result.Checks)
 	}
@@ -403,6 +406,14 @@ func configureSuccessfulRollback(manager *Manager, runner *fakeRunner) {
 func TestResetWithoutActiveProfileStillForcesAutomaticNetwork(t *testing.T) {
 	manager, runner := newTestManager(t)
 	configureSuccessfulRollback(manager, runner)
+	infoKey := commandKey(manager.networkSetup, "-getinfo", "Office Wireless")
+	dnsKey := commandKey(manager.networkSetup, "-getdnsservers", "Office Wireless")
+	runner.outputs[infoKey] = `Manual Configuration
+IP address: 172.16.40.100
+Subnet mask: 255.255.248.0
+Router: 172.16.40.2
+`
+	runner.outputs[dnsKey] = "172.16.40.2\n"
 	runner.calls = nil
 
 	result, err := manager.Reset()
@@ -411,6 +422,9 @@ func TestResetWithoutActiveProfileStillForcesAutomaticNetwork(t *testing.T) {
 	}
 	if result.Service != "Office Wireless" || result.Device != "en7" || result.Live.Mode != "DHCP Configuration" {
 		t.Fatalf("result = %+v", result)
+	}
+	if result.Before.Mode != "Manual Configuration" || result.Before.Gateway != "172.16.40.2" || !reflect.DeepEqual(result.Before.DNS, []string{"172.16.40.2"}) {
+		t.Fatalf("before = %+v", result.Before)
 	}
 	want := []string{
 		"sudo -v",

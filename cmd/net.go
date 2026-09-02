@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 
@@ -40,6 +41,7 @@ var netApplyCmd = &cobra.Command{
 		if result.State.SSID != "" {
 			fmt.Fprintf(cmd.OutOrStdout(), "  Wi-Fi: %s\n", result.State.SSID)
 		}
+		printNetworkTransition(cmd.OutOrStdout(), result.Before, result.Live)
 		fmt.Fprintf(cmd.OutOrStdout(), "  IPv4: %s/%s\n", result.Live.Address, result.Live.SubnetMask)
 		fmt.Fprintf(cmd.OutOrStdout(), "  gateway: %s (verified)\n", result.Checks.Gateway)
 		fmt.Fprintf(cmd.OutOrStdout(), "  DNS: %s (verified)\n", strings.Join(result.Live.DNS, ", "))
@@ -63,6 +65,7 @@ var netResetCmd = &cobra.Command{
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "✓ 已强制恢复自动网络配置")
 		fmt.Fprintf(cmd.OutOrStdout(), "  service: %s (%s)\n", result.Service, result.Device)
+		printNetworkTransition(cmd.OutOrStdout(), result.Before, result.Live)
 		fmt.Fprintln(cmd.OutOrStdout(), "  IPv4: DHCP")
 		if result.Live.Address != "" {
 			address := result.Live.Address
@@ -77,6 +80,29 @@ var netResetCmd = &cobra.Command{
 		fmt.Fprintln(cmd.OutOrStdout(), "  DNS: Automatic")
 		return nil
 	},
+}
+
+func printNetworkTransition(w io.Writer, before, after network.LiveStatus) {
+	fmt.Fprintln(w, "  changes:")
+	fmt.Fprintf(w, "    mode: %s -> %s\n", networkValue(before.Mode), networkValue(after.Mode))
+	fmt.Fprintf(w, "    address: %s -> %s\n", networkValue(before.Address), networkValue(after.Address))
+	fmt.Fprintf(w, "    subnet mask: %s -> %s\n", networkValue(before.SubnetMask), networkValue(after.SubnetMask))
+	fmt.Fprintf(w, "    gateway: %s -> %s\n", networkValue(before.Gateway), networkValue(after.Gateway))
+	fmt.Fprintf(w, "    DNS: %s -> %s\n", networkDNS(before.DNS), networkDNS(after.DNS))
+}
+
+func networkValue(value string) string {
+	if value == "" {
+		return "<unknown>"
+	}
+	return value
+}
+
+func networkDNS(servers []string) string {
+	if len(servers) == 0 {
+		return "Automatic"
+	}
+	return strings.Join(servers, ", ")
 }
 
 var netStatusCmd = &cobra.Command{

@@ -59,6 +59,7 @@ type Manager struct {
 
 type ApplyResult struct {
 	State          ActiveState
+	Before         LiveStatus
 	Live           LiveStatus
 	Checks         ApplyChecks
 	AlreadyApplied bool
@@ -73,6 +74,7 @@ type ApplyChecks struct {
 type ResetResult struct {
 	Service string
 	Device  string
+	Before  LiveStatus
 	Live    LiveStatus
 }
 
@@ -120,13 +122,17 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 	if err != nil {
 		return ApplyResult{}, err
 	}
+	before, err := m.readLive(service)
+	if err != nil {
+		return ApplyResult{}, fmt.Errorf("读取变更前 Wi-Fi 配置: %w", err)
+	}
 	active, hasActive, err := ReadActive(m.ConfigDir)
 	if err != nil {
 		return ApplyResult{}, err
 	}
 	if profile.CurrentAddress || profile.CurrentSubnetMask {
 		allowManual := hasActive && active.Profile == name
-		live, err := m.prepareCurrentNetwork(profile, service, allowManual)
+		live, err := m.prepareCurrentNetwork(profile, before, allowManual)
 		if err != nil {
 			return ApplyResult{}, err
 		}
@@ -154,7 +160,7 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		if err == nil && matchesProfile(live, profile) {
 			checks, verifyErr := m.verifyConnectivity(profile, device)
 			if verifyErr == nil {
-				return ApplyResult{State: state, Live: live, Checks: checks, AlreadyApplied: true}, nil
+				return ApplyResult{State: state, Before: before, Live: live, Checks: checks, AlreadyApplied: true}, nil
 			}
 		}
 	}
@@ -209,7 +215,7 @@ func (m *Manager) Apply(name string) (ApplyResult, error) {
 		}
 		return ApplyResult{}, fmt.Errorf("网络可用性校验失败: %w；自动回滚失败: %v", err, rollbackErr)
 	}
-	return ApplyResult{State: state, Live: live, Checks: checks}, nil
+	return ApplyResult{State: state, Before: before, Live: live, Checks: checks}, nil
 }
 
 func (m *Manager) waitForProfile(service string, profile Profile) (LiveStatus, error) {
@@ -308,11 +314,7 @@ func connectivityCurlArgs(resolvedIP string) []string {
 	}
 }
 
-func (m *Manager) prepareCurrentNetwork(profile Profile, service string, allowManual bool) (LiveStatus, error) {
-	live, err := m.readLive(service)
-	if err != nil {
-		return LiveStatus{}, fmt.Errorf("读取当前 Wi-Fi 配置: %w", err)
-	}
+func (m *Manager) prepareCurrentNetwork(profile Profile, live LiveStatus, allowManual bool) (LiveStatus, error) {
 	if live.Mode != "DHCP Configuration" && !allowManual {
 		return LiveStatus{}, fmt.Errorf("当前 Wi-Fi 不是 DHCP 模式（%s）；请先运行 siti net reset", displayValue(live.Mode))
 	}
@@ -361,6 +363,7 @@ func (m *Manager) Reset() (ResetResult, error) {
 	if err != nil {
 		return ResetResult{}, err
 	}
+	before, _ := m.readLive(service)
 	if err := m.runner.Run("sudo", "-v"); err != nil {
 		return ResetResult{}, fmt.Errorf("获取管理员权限: %w", err)
 	}
@@ -371,7 +374,7 @@ func (m *Manager) Reset() (ResetResult, error) {
 	if err := RemoveActive(m.ConfigDir); err != nil {
 		return ResetResult{}, err
 	}
-	return ResetResult{Service: service, Device: device, Live: live}, nil
+	return ResetResult{Service: service, Device: device, Before: before, Live: live}, nil
 }
 
 func (m *Manager) Status() (StatusResult, error) {
